@@ -6,13 +6,13 @@ export const PARAMS = [
   { id: 'T5',  label: 'T5',                       x: 55.0, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 245 },
   { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 8.5,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
 
-  { id: 'Td',  label: 'Td – czas docisku',        x: 9.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
+  { id: 'Td',  label: 'Td – czas docisku',        x: 6.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
   { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 14.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
-  { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 18.8, y: 85.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
+  { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 22.8, y: 85.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
 
   { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
   { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw3', label: 'Pw3',                       x: 48.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw3', label: 'Pw3',                       x: 47.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
   { id: 'Pw2', label: 'Pw2',                       x: 54.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
   { id: 'Pw1', label: 'Pw1',                       x: 61.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
   { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 70.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
