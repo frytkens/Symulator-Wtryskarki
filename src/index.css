@@ -95,13 +95,13 @@ h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
 .diagram-wrap img { display: block; width: 100%; height: auto; }
 
 .diagram-wrap--injection {
-  flex: 0 1 50%;
-  max-width: 50%;
+  flex: 0 1 65%;
+  max-width: 65%;
 }
 
 .diagram-wrap--clamp {
-  flex: 0 1 50%;
-  max-width: 50%;
+  flex: 0 1 35%;
+  max-width: 35%;
   aspect-ratio: 2048 / 1000;
 }
 
