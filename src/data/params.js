@@ -10,12 +10,12 @@ export const PARAMS = [
   { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 14.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
   { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 18.8, y: 85.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
 
-  { id: 'Pw5', label: 'Pw5',                       x: 38.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw4', label: 'Pw4',                       x: 45.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw3', label: 'Pw3',                       x: 52.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw2', label: 'Pw2',                       x: 59.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw1', label: 'Pw1',                       x: 66.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
-  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 72.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
+  { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw3', label: 'Pw3',                       x: 48.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw2', label: 'Pw2',                       x: 54.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw1', label: 'Pw1',                       x: 61.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
+  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 70.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
 
   { id: 'Deko', label: 'Deko – dekompresja',      x: 82.5, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
   { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 82.5, y: 18.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 15  },
