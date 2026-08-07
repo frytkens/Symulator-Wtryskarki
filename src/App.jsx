@@ -1,6 +1,10 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import ParamField from './components/ParamField.jsx'
-import { PARAMS, CLAMP_PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD } from './data/params.js'
+import { LABELS } from './data/labels.js'
+import { PARAMS, CLAMP_PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD, TRAINER_NOTES } from './data/params.js'
+
+const ALL_PARAMS = [...PARAMS, ...CLAMP_PARAMS]
+const CYCLE_SECONDS = 5
 
 function round(n, d = 0) {
   const f = Math.pow(10, d)
@@ -9,8 +13,7 @@ function round(n, d = 0) {
 
 function defaultValues() {
   const v = {}
-  PARAMS.forEach(p => { v[p.id] = p.def })
-  CLAMP_PARAMS.forEach(p => { v[p.id] = p.def })
+  ALL_PARAMS.forEach(p => { v[p.id] = p.def })
   return v
 }
 
@@ -25,6 +28,17 @@ function randomChallengeValues() {
   return v
 }
 
+function computeResult(values) {
+  const activeParams = PARAMS.filter(p => p.active)
+  let overall = 0
+  activeParams.forEach(p => {
+    const q = curveVal(Number(values[p.id]), CURVES[p.id])
+    overall += q * p.weight
+  })
+  const defectPct = Math.max(0, Math.min(100, Math.round(100 - overall)))
+  return { overallQuality: round(overall), defectPct }
+}
+
 export default function App() {
   const [values, setValues] = useState(defaultValues)
   const [running, setRunning] = useState(false)
@@ -33,17 +47,14 @@ export default function App() {
   const startRef = useRef(null)
   const rafRef = useRef(null)
 
-  const activeParams = useMemo(() => PARAMS.filter(p => p.active), [])
+  const [countdown, setCountdown] = useState(null) // null = brak trwającego cyklu
+  const [cycleLog, setCycleLog] = useState([])
+  const [wada, setWada] = useState('niedolanie')
+  const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
+  const lastLoggedValues = useRef(defaultValues())
+  const countdownRef = useRef(null)
 
-  const { overallQuality, defectPct } = useMemo(() => {
-    let overall = 0
-    activeParams.forEach(p => {
-      const q = curveVal(Number(values[p.id]), CURVES[p.id])
-      overall += q * p.weight
-    })
-    const defect = Math.max(0, Math.min(100, Math.round(100 - overall * 0.8)))
-    return { overallQuality: round(overall), defectPct: defect }
-  }, [values, activeParams])
+  const cycling = countdown !== null
 
   useEffect(() => {
     if (!running) return
@@ -55,15 +66,12 @@ export default function App() {
     return () => cancelAnimationFrame(rafRef.current)
   }, [running])
 
-  useEffect(() => {
-    if (running && !solved && defectPct <= SUCCESS_THRESHOLD) {
-      setRunning(false)
-      setSolved(true)
-    }
-  }, [defectPct, running, solved])
-
   const handleStart = useCallback(() => {
-    setValues(randomChallengeValues())
+    const fresh = randomChallengeValues()
+    setValues(fresh)
+    lastLoggedValues.current = fresh
+    setCycleLog([])
+    setResultModal(null)
     setElapsedMs(0)
     setSolved(false)
     startRef.current = Date.now()
@@ -74,12 +82,69 @@ export default function App() {
     setRunning(false)
     setSolved(false)
     setElapsedMs(0)
-    setValues(defaultValues())
+    const fresh = defaultValues()
+    setValues(fresh)
+    lastLoggedValues.current = fresh
+    setCycleLog([])
+    setResultModal(null)
+    clearInterval(countdownRef.current)
+    setCountdown(null)
   }, [])
 
   const handleChange = useCallback((id, raw) => {
     setValues(prev => ({ ...prev, [id]: raw === '' ? '' : Number(raw) }))
   }, [])
+
+  const handleStartCycle = useCallback(() => {
+    if (cycling) return
+    setCountdown(CYCLE_SECONDS)
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current)
+          // cykl zakończony – policz wynik i zapisz do logu
+          setValues(currentValues => {
+            const { defectPct } = computeResult(currentValues)
+            const isSolved = defectPct <= SUCCESS_THRESHOLD
+
+            const changes = ALL_PARAMS
+              .filter(p => Number(currentValues[p.id]) !== Number(lastLoggedValues.current[p.id]))
+              .map(p => ({
+                id: p.id,
+                label: LABELS[p.id] || p.label,
+                from: lastLoggedValues.current[p.id],
+                to: currentValues[p.id],
+                unit: p.unit
+              }))
+            lastLoggedValues.current = currentValues
+
+            setCycleLog(log => [
+              { cycle: log.length + 1, changes, defectPct, solved: isSolved },
+              ...log
+            ])
+            setResultModal({ solved: isSolved })
+
+            if (running && !solved && isSolved) {
+              setRunning(false)
+              setSolved(true)
+            }
+            return currentValues
+          })
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }, [cycling, running, solved])
+
+  useEffect(() => {
+    if (countdown === 0) {
+      const t = setTimeout(() => setCountdown(null), 600)
+      return () => clearTimeout(t)
+    }
+  }, [countdown])
+
+  useEffect(() => () => clearInterval(countdownRef.current), [])
 
   const seconds = (elapsedMs / 1000).toFixed(1)
 
@@ -87,11 +152,12 @@ export default function App() {
     <div className="page">
       <h1>Symulator wtryskarki – panel parametrów</h1>
       <p className="sub">
-        Kliknij start, żeby wylosować nieprawidłowe ustawienia, a potem znajdź poprawne wartości zanim zegar Cię zaskoczy.
+        Kliknij start, żeby wylosować nieprawidłowe ustawienia. Ustaw parametry, uruchom cykl przyciskiem
+        „Start cyklu” i sprawdź wynik – tak jak na prawdziwej maszynie.
         Niebieskie obramowanie = parametr ma wpływ na wybraną wadę.
       </p>
 
-      <select className="wada-select" defaultValue="niedolanie">
+      <select className="wada-select" value={wada} onChange={e => setWada(e.target.value)}>
         <option value="niedolanie">Niedolanie – nieprawidłowa praca zaworu zwrotnego</option>
         <option value="grat" disabled>Grat (wkrótce)</option>
         <option value="zapadniecie" disabled>Zapadnięcie (wkrótce)</option>
@@ -114,10 +180,18 @@ export default function App() {
             <button className="btn primary" onClick={handleStart}>jeszcze raz</button>
           </div>
         )}
+
+        <button
+          className="btn primary cycle-btn"
+          onClick={handleStartCycle}
+          disabled={cycling}
+        >
+          {cycling ? `Cykl… ${countdown}` : 'Start cyklu'}
+        </button>
       </div>
 
       <div className="machine-layout">
-        <div className="diagram-wrap diagram-wrap--clamp">
+        <div className={`diagram-wrap diagram-wrap--clamp ${cycling ? 'is-cycling' : ''}`}>
           <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
           {CLAMP_PARAMS.map(p => (
             <ParamField
@@ -125,11 +199,12 @@ export default function App() {
               param={p}
               value={values[p.id]}
               onChange={handleChange}
+              disabled={cycling}
             />
           ))}
         </div>
 
-        <div className="diagram-wrap diagram-wrap--injection">
+        <div className={`diagram-wrap diagram-wrap--injection ${cycling ? 'is-cycling' : ''}`}>
           <img src="/schemat.png" alt="Schemat wtryskarki" />
           {PARAMS.map(p => (
             <ParamField
@@ -137,53 +212,78 @@ export default function App() {
               param={p}
               value={values[p.id]}
               onChange={handleChange}
+              disabled={cycling}
             />
           ))}
         </div>
       </div>
 
-      <div className="results">
-        <div className="card">
-          <h3>Parametry z wpływem na wybraną wadę</h3>
-          {activeParams.map(p => {
-            const q = round(curveVal(Number(values[p.id]) || 0, CURVES[p.id]))
-            return (
-              <div className="bar-row" key={p.id}>
-                <div className="lab">
-                  <span>{p.id} (waga {Math.round(p.weight * 100)}%)</span>
-                  <span>{q}%</span>
-                </div>
-                <div className="bar-track">
-                  <div className="bar-fill" style={{ width: q + '%' }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="card center">
-          <PartSvg defectPct={defectPct} />
-          <div className="stat">
-            <div className="lab">jakość procesu</div>
-            <div className="num">{overallQuality}%</div>
+      <div className="cycle-log">
+        <h3>Log cykli</h3>
+        {cycleLog.length === 0 && (
+          <p className="cycle-log-empty">Brak jeszcze żadnego cyklu – ustaw parametry i kliknij „Start cyklu”.</p>
+        )}
+        {cycleLog.map(entry => (
+          <div className={`cycle-entry ${entry.solved ? 'ok' : 'ng'}`} key={entry.cycle}>
+            <div className="cycle-entry-head">
+              <span>Cykl {entry.cycle}</span>
+              <span className={`cycle-result ${entry.solved ? 'ok' : 'ng'}`}>
+                {entry.solved ? 'sztuka DOBRA' : 'sztuka NG'}
+              </span>
+            </div>
+            {entry.changes.length > 0 ? (
+              <ul className="cycle-changes">
+                {entry.changes.map(c => (
+                  <li key={c.id}>
+                    {c.label}: {c.from} → {c.to} {c.unit}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="cycle-changes-empty">Brak zmian względem poprzedniego cyklu</p>
+            )}
           </div>
-          <div className="stat">
-            <div className="lab">prawdopodobieństwo niedolania</div>
-            <div className="num danger">{defectPct}%</div>
-          </div>
-        </div>
+        ))}
       </div>
-    </div>
-  )
-}
 
-function PartSvg({ defectPct }) {
-  const cut = Math.min(60, defectPct * 0.6)
-  const d = `M170,30 L170,${30 + cut} L${170 - cut},30 Z`
-  return (
-    <svg viewBox="0 0 200 200" width="140" height="140">
-      <rect x="30" y="30" width="140" height="140" rx="6" fill="#f4f4f2" stroke="#ccc" strokeWidth="1" />
-      <path d={d} fill="#fff" />
-    </svg>
+      {resultModal && (
+        <div className="modal-backdrop" onClick={() => setResultModal(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            {resultModal.solved ? (
+              <svg className="verdict-icon ok" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="36" fill="none" stroke="#147a3e" strokeWidth="4" />
+                <path className="check-path" d="M22 42 L35 55 L58 28" fill="none" stroke="#147a3e" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              <svg className="verdict-icon ng" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="36" fill="none" stroke="#b02a2a" strokeWidth="4" />
+                <path d="M27 27 L53 53" stroke="#b02a2a" strokeWidth="5" strokeLinecap="round" />
+                <path d="M53 27 L27 53" stroke="#b02a2a" strokeWidth="5" strokeLinecap="round" />
+              </svg>
+            )}
+
+            <div className={`verdict-title ${resultModal.solved ? 'ok' : 'ng'}`}>
+              {resultModal.solved ? 'Sztuka DOBRA' : 'Sztuka NG'}
+            </div>
+            <p className="verdict-sub">
+              {resultModal.solved
+                ? 'Parametry dają akceptowalne ryzyko niedolania.'
+                : 'Zbyt wysokie ryzyko niedolania przy tych parametrach.'}
+            </p>
+
+            {TRAINER_NOTES[wada] && (
+              <div className="trainer-notes">
+                <h4>Do omówienia z trenerem</h4>
+                <ul>
+                  {TRAINER_NOTES[wada].map(item => <li key={item}>{item}</li>)}
+                </ul>
+              </div>
+            )}
+
+            <button className="btn primary" onClick={() => setResultModal(null)}>zamknij</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
