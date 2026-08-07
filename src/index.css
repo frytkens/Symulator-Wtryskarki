@@ -259,3 +259,27 @@ h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
 .trainer-notes h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #666; margin: 0 0 8px; }
 .trainer-notes ul { margin: 0; padding-left: 18px; font-size: 13px; color: #333; }
 .trainer-notes li { margin-bottom: 4px; }
+
+.trend-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.trend-badge.better { background: #e6f5ec; color: #147a3e; }
+.trend-badge.worse  { background: #fbe9e9; color: #b02a2a; }
+.trend-badge.same   { background: #f0f0ee; color: #666; }
+.trend-badge.first  { background: #eef3fa; color: #185FA5; }
+.trend-arrow { font-size: 14px; }
+
+.trend-arrow-small {
+  margin-left: 6px;
+  font-size: 11px;
+}
+.trend-arrow-small.better { color: #147a3e; }
+.trend-arrow-small.worse  { color: #b02a2a; }
+.trend-arrow-small.same   { color: #999; }
