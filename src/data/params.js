@@ -4,7 +4,7 @@ export const PARAMS = [
   { id: 'T3',  label: 'T3',                       x: 31.1, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 235 },
   { id: 'T4',  label: 'T4',                       x: 43.1, y: 8.0,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 240 },
   { id: 'T5',  label: 'T5',                       x: 55.0, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 245 },
-  { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 5.0,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
+  { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 7.0,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
 
   { id: 'Td',  label: 'Td – czas docisku',        x: 9.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
   { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 14.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
