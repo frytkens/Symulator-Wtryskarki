@@ -9,6 +9,7 @@ body {
 
 .page {
   padding: 24px;
+  width: 80%;
   max-width: 1600px;
   margin: 0 auto;
 }
@@ -86,21 +87,41 @@ h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; }
 }
 .diagram-wrap img { display: block; width: 100%; height: auto; }
 
-.field { position: absolute; transform: translate(-50%, -50%); z-index: 2; }
+.field {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .field input {
-  width: 4.4em;
-  font-size: 1.1vw;
+  width: 50px;
+  font-size: 12px;
   text-align: center;
-  padding: 0.35vw 0.2vw;
+  padding: 3px 2px;
   border-radius: 999px;
   border: 2px solid #111;
   background: #fff;
   font-weight: 700;
   color: #111;
+  -moz-appearance: auto;
+  appearance: auto;
 }
 .field input:focus { outline: 2px solid #378ADD; }
 .field.inactive input { border-color: #999; color: #777; font-weight: 500; background: #fafafa; }
 .field.active input { border-color: #185FA5; box-shadow: 0 0 0 3px rgba(24,95,165,0.18); }
+.field .caption {
+  font-size: 9px;
+  line-height: 1.2;
+  color: #555;
+  background: rgba(255,255,255,0.9);
+  padding: 1px 3px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-top: 2px;
+  pointer-events: none;
+}
 
 .results {
   max-width: 1600px;

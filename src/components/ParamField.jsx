@@ -1,3 +1,5 @@
+import { LABELS } from '../data/labels.js'
+
 export default function ParamField({ param, value, onChange }) {
   return (
     <div
@@ -13,6 +15,7 @@ export default function ParamField({ param, value, onChange }) {
         title={`${param.label} (${param.min}–${param.max} ${param.unit})`}
         onChange={(e) => onChange(param.id, e.target.value)}
       />
+      <div className="caption">{LABELS[param.id] || param.id}</div>
     </div>
   )
 }
