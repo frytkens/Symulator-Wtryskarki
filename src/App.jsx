@@ -271,7 +271,7 @@ export default function App() {
                 : 'Zbyt wysokie ryzyko niedolania przy tych parametrach.'}
             </p>
 
-            {TRAINER_NOTES[wada] && (
+            {resultModal.solved && TRAINER_NOTES[wada] && (
               <div className="trainer-notes">
                 <h4>Do omówienia z trenerem</h4>
                 <ul>
