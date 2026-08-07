@@ -23,6 +23,13 @@ export const PARAMS = [
   { id: 'doz',  label: 'doz – skok dozowania',    x: 92.2, y: 85.0, min: 0,   max: 150,  step: 2,    unit: 'mm',  def: 60  }
 ]
 
+export const CLAMP_PARAMS = [
+  { id: 'Tr', label: 'Tr – temp. strony ruchomej', x: 44.8, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
+  { id: 'Ts', label: 'Ts – temp. strony stałej',   x: 65.5, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
+  { id: 'Tc', label: 'Tc – czas cyklu',            x: 44.8, y: 90.0, min: 0,  max: 120, step: 1, unit: 's',  def: 30 },
+  { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 200, step: 5, unit: 't',  def: 180 }
+]
+
 export const CURVES = {
   T1:   [[0,10],[100,30],[150,60],[180,85],[200,95],[220,100],[230,90],[240,80],[250,60],[260,35],[270,15],[300,5],[350,0]],
   Pw1:  [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
