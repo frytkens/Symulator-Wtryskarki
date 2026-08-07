@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import ParamField from './components/ParamField.jsx'
-import { PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD } from './data/params.js'
+import { PARAMS, CLAMP_PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD } from './data/params.js'
 
 function round(n, d = 0) {
   const f = Math.pow(10, d)
@@ -10,6 +10,7 @@ function round(n, d = 0) {
 function defaultValues() {
   const v = {}
   PARAMS.forEach(p => { v[p.id] = p.def })
+  CLAMP_PARAMS.forEach(p => { v[p.id] = p.def })
   return v
 }
 
@@ -116,6 +117,18 @@ export default function App() {
       </div>
 
       <div className="machine-layout">
+        <div className="diagram-wrap diagram-wrap--clamp">
+          <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
+          {CLAMP_PARAMS.map(p => (
+            <ParamField
+              key={p.id}
+              param={p}
+              value={values[p.id]}
+              onChange={handleChange}
+            />
+          ))}
+        </div>
+
         <div className="diagram-wrap diagram-wrap--injection">
           <img src="/schemat.png" alt="Schemat wtryskarki" />
           {PARAMS.map(p => (
@@ -126,10 +139,6 @@ export default function App() {
               onChange={handleChange}
             />
           ))}
-        </div>
-
-        <div className="diagram-wrap diagram-wrap--clamp diagram-wrap--placeholder">
-          <span>Zamykanie wtryskarki – wkrótce</span>
         </div>
       </div>
 
