@@ -17,10 +17,10 @@ export const PARAMS = [
   { id: 'Pw1', label: 'Pw1',                       x: 56.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
   { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 62.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
 
-  { id: 'Deko', label: 'Deko – dekompresja',      x: 74.7, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
-  { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 86.5, y: 18.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 15  },
+  { id: 'Deko', label: 'Deko – dekompresja',      x: 82.5, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
+  { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 82.5, y: 18.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 15  },
   { id: 'Ob',   label: 'Ob – obroty',             x: 92.4, y: 18.0, min: 0,   max: 1.2,  step: 0.05, unit: 'm/s', def: 0.6 },
-  { id: 'doz',  label: 'doz – skok dozowania',    x: 92.2, y: 85.0, min: 0,   max: 150,  step: 2,    unit: 'mm',  def: 60  }
+  { id: 'doz',  label: 'doz – skok dozowania',    x: 92.4, y: 85.0, min: 0,   max: 150,  step: 2,    unit: 'mm',  def: 60  }
 ]
 
 export const CLAMP_PARAMS = [
