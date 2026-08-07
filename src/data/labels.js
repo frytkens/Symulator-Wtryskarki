@@ -8,21 +8,21 @@ export const LABELS = {
   T3:   'T3 – strefa 3',
   T4:   'T4 – strefa 4',
   T5:   'T5 – strefa 5',
-  TR:   'TR – trawersa',
+  TR:   'Trawersa',
 
-  Td:   'Td – czas docisku',
-  Pd:   'Pd – ciśnienie docisku',
-  Pp:   'Pp – punkt przełączenia',
+  Td:   'Czas docisku',
+  Pd:   'Ciśnienie docisku',
+  Pp:   'Punkt przełączenia',
 
-  Pw5:  'Pw5 – prędkość 5',
-  Pw4:  'Pw4 – prędkość 4',
-  Pw3:  'Pw3 – prędkość 3',
-  Pw2:  'Pw2 – prędkość 2',
-  Pw1:  'Pw1 – prędkość 1',
-  GR:   'GR – gr. ciśn. docisku',
+  Pw5:  'Pr. wtrysku 5',
+  Pw4:  'Pr. wtrysku 4',
+  Pw3:  'Pr. wtrysku 3',
+  Pw2:  'Pr. wtrysku 2',
+  Pw1:  'Pr. wtrysku 1',
+  GR:   'Gr. ciśn. docisku',
 
-  Deko: 'Deko – dekompresja',
-  Prz:  'Prz – przeciwciśnienie',
-  Ob:   'Ob – obroty ślimaka',
-  doz:  'doz – skok dozowania'
+  Deko: 'Dekompresja',
+  Prz:  'Przeciwciśnienie',
+  Ob:   'Obroty ślimaka',
+  doz:  'Skok dozowania'
 }
