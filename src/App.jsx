@@ -39,6 +39,15 @@ function computeResult(values) {
   return { overallQuality: round(overall), defectPct }
 }
 
+function trendMeta(trend) {
+  switch (trend) {
+    case 'better': return { text: 'Lepiej niż poprzednio', arrow: '▲', cls: 'better' }
+    case 'worse':  return { text: 'Gorzej niż poprzednio', arrow: '▼', cls: 'worse' }
+    case 'same':   return { text: 'Bez zmian względem poprzedniego cyklu', arrow: '▬', cls: 'same' }
+    default:       return { text: 'Pierwszy cykl w tej próbie', arrow: '●', cls: 'first' }
+  }
+}
+
 export default function App() {
   const [values, setValues] = useState(defaultValues)
   const [running, setRunning] = useState(false)
@@ -52,6 +61,7 @@ export default function App() {
   const [wada, setWada] = useState('niedolanie')
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
   const lastLoggedValues = useRef(defaultValues())
+  const lastDefectPct = useRef(null)
   const countdownRef = useRef(null)
 
   const cycling = countdown !== null
@@ -70,6 +80,7 @@ export default function App() {
     const fresh = randomChallengeValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
+    lastDefectPct.current = null
     setCycleLog([])
     setResultModal(null)
     setElapsedMs(0)
@@ -85,6 +96,7 @@ export default function App() {
     const fresh = defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
+    lastDefectPct.current = null
     setCycleLog([])
     setResultModal(null)
     clearInterval(countdownRef.current)
@@ -107,6 +119,14 @@ export default function App() {
             const { defectPct } = computeResult(currentValues)
             const isSolved = defectPct <= SUCCESS_THRESHOLD
 
+            let trend = 'first'
+            if (lastDefectPct.current !== null) {
+              if (defectPct < lastDefectPct.current) trend = 'better'
+              else if (defectPct > lastDefectPct.current) trend = 'worse'
+              else trend = 'same'
+            }
+            lastDefectPct.current = defectPct
+
             const changes = ALL_PARAMS
               .filter(p => Number(currentValues[p.id]) !== Number(lastLoggedValues.current[p.id]))
               .map(p => ({
@@ -119,10 +139,10 @@ export default function App() {
             lastLoggedValues.current = currentValues
 
             setCycleLog(log => [
-              { cycle: log.length + 1, changes, defectPct, solved: isSolved },
+              { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend },
               ...log
             ])
-            setResultModal({ solved: isSolved })
+            setResultModal({ solved: isSolved, trend })
 
             if (running && !solved && isSolved) {
               setRunning(false)
@@ -229,6 +249,11 @@ export default function App() {
               <span>Cykl {entry.cycle}</span>
               <span className={`cycle-result ${entry.solved ? 'ok' : 'ng'}`}>
                 {entry.solved ? 'sztuka DOBRA' : 'sztuka NG'}
+                {entry.trend !== 'first' && (
+                  <span className={`trend-arrow-small ${trendMeta(entry.trend).cls}`}>
+                    {trendMeta(entry.trend).arrow}
+                  </span>
+                )}
               </span>
             </div>
             {entry.changes.length > 0 ? (
@@ -270,6 +295,13 @@ export default function App() {
                 ? 'Parametry dają akceptowalne ryzyko niedolania.'
                 : 'Zbyt wysokie ryzyko niedolania przy tych parametrach.'}
             </p>
+
+            {!resultModal.solved && (
+              <div className={`trend-badge ${trendMeta(resultModal.trend).cls}`}>
+                <span className="trend-arrow">{trendMeta(resultModal.trend).arrow}</span>
+                {trendMeta(resultModal.trend).text}
+              </div>
+            )}
 
             {resultModal.solved && TRAINER_NOTES[wada] && (
               <div className="trainer-notes">
