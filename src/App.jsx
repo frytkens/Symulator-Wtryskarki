@@ -115,16 +115,22 @@ export default function App() {
         )}
       </div>
 
-      <div className="diagram-wrap">
-        <img src="/schemat.png" alt="Schemat wtryskarki" />
-        {PARAMS.map(p => (
-          <ParamField
-            key={p.id}
-            param={p}
-            value={values[p.id]}
-            onChange={handleChange}
-          />
-        ))}
+      <div className="machine-layout">
+        <div className="diagram-wrap diagram-wrap--injection">
+          <img src="/schemat.png" alt="Schemat wtryskarki" />
+          {PARAMS.map(p => (
+            <ParamField
+              key={p.id}
+              param={p}
+              value={values[p.id]}
+              onChange={handleChange}
+            />
+          ))}
+        </div>
+
+        <div className="diagram-wrap diagram-wrap--clamp diagram-wrap--placeholder">
+          <span>Zamykanie wtryskarki – wkrótce</span>
+        </div>
       </div>
 
       <div className="results">
