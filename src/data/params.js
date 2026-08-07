@@ -7,7 +7,7 @@ export const PARAMS = [
   { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 3.0,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
 
   { id: 'Td',  label: 'Td – czas docisku',        x: 9.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
-  { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 14.1, y: 85.0, min: 0,   max: 1500, step: 10,   unit: 'bar', def: 600 },
+  { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 14.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
   { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 18.8, y: 85.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
 
   { id: 'Pw5', label: 'Pw5',                       x: 28.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
@@ -15,7 +15,7 @@ export const PARAMS = [
   { id: 'Pw3', label: 'Pw3',                       x: 42.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
   { id: 'Pw2', label: 'Pw2',                       x: 49.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
   { id: 'Pw1', label: 'Pw1',                       x: 56.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
-  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 62.9, y: 85.0, min: 0,   max: 1500, step: 10,   unit: 'bar', def: 500 },
+  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 62.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
 
   { id: 'Deko', label: 'Deko – dekompresja',      x: 74.7, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
   { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 80.5, y: 85.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 15  },
