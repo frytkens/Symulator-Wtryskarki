@@ -4,23 +4,23 @@ export const PARAMS = [
   { id: 'T3',  label: 'T3',                       x: 31.1, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 235 },
   { id: 'T4',  label: 'T4',                       x: 43.1, y: 8.0,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 240 },
   { id: 'T5',  label: 'T5',                       x: 55.0, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 245 },
-  { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 8.5,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
+  { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 5.0,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
 
-  { id: 'Td',  label: 'Td – czas docisku',        x: 12.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
-  { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 19.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
-  { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 26.8, y: 70.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
+  { id: 'Td',  label: 'Td – czas docisku',        x: 9.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
+  { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 14.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
+  { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 18.8, y: 85.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
 
-  { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw3', label: 'Pw3',                       x: 47.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw2', label: 'Pw2',                       x: 54.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw1', label: 'Pw1',                       x: 61.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
-  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 70.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
+  { id: 'Pw5', label: 'Pw5',                       x: 28.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw4', label: 'Pw4',                       x: 35.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw3', label: 'Pw3',                       x: 42.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw2', label: 'Pw2',                       x: 49.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw1', label: 'Pw1',                       x: 56.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
+  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 62.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
 
-  { id: 'Deko', label: 'Deko – dekompresja',      x: 92.5, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
-  { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 82.5, y: 18.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 15  },
-  { id: 'Ob',   label: 'Ob – obroty',             x: 92.4, y: 18.0, min: 0,   max: 1.2,  step: 0.05, unit: 'm/s', def: 0.6 },
-  { id: 'doz',  label: 'doz – skok dozowania',    x: 85.4, y: 85.0, min: 0,   max: 150,  step: 2,    unit: 'mm',  def: 60  }
+  { id: 'Deko', label: 'Deko – dekompresja',      x: 74.7, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
+  { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 80.5, y: 85.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 15  },
+  { id: 'Ob',   label: 'Ob – obroty',             x: 86.4, y: 85.0, min: 0,   max: 1.2,  step: 0.05, unit: 'm/s', def: 0.6 },
+  { id: 'doz',  label: 'doz – skok dozowania',    x: 92.2, y: 85.0, min: 0,   max: 150,  step: 2,    unit: 'mm',  def: 60  }
 ]
 
 export const CLAMP_PARAMS = [
@@ -48,4 +48,14 @@ export function curveVal(x, pts) {
   return pts[pts.length - 1][1]
 }
 
-export const SUCCESS_THRESHOLD = 10 // % ryzyka niedolania, poniżej którego uznajemy że rozwiązanie znalezione
+export const SUCCESS_THRESHOLD = 12 // % ryzyka niedolania, poniżej którego uznajemy sztukę za dobrą
+
+export const TRAINER_NOTES = {
+  niedolanie: [
+    'Sprawdź rodzaj zaworu zwrotnego',
+    'Sprawdź płynność materiału',
+    'Sprawdź sprawność zaworu zwrotnego – czy nie jest zepsuty',
+    'Sprawdź szczelność dyszy',
+    'Sprawdź czy nie jest rozszczelniony GK'
+  ]
+}
