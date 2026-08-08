@@ -34,6 +34,14 @@ body {
   margin: 0 auto;
 }
 
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 h1 {
   font-size: 25px;
   font-weight: 700;
@@ -421,3 +429,164 @@ h1 {
 .trend-arrow-small.better { color: var(--success); }
 .trend-arrow-small.worse  { color: var(--danger); }
 .trend-arrow-small.same   { color: #9aa2b0; }
+
+/* ===== Zarządzanie wadami (admin) ===== */
+.admin-page {
+  padding: 32px 24px 64px;
+  width: 88%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+.admin-header h1 { margin: 0; }
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+  margin-top: 22px;
+}
+@media (max-width: 900px) {
+  .admin-grid { grid-template-columns: 1fr; }
+}
+
+.admin-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+}
+.admin-card h3 {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 14px;
+  color: var(--text-muted);
+}
+
+.defect-list { list-style: none; margin: 0; padding: 0; }
+.defect-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.defect-list-item:first-child { border-top: none; }
+.defect-list-label { display: block; font-size: 13.5px; font-weight: 600; }
+.defect-list-meta { display: block; font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.defect-list-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+.btn.small { padding: 6px 12px; font-size: 12px; }
+.btn.small.danger { color: var(--danger); border-color: #f0d3d1; }
+.btn.small.danger:hover { background: var(--danger-soft); }
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.form-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+  font-size: 13.5px;
+  color: var(--text);
+  font-family: inherit;
+}
+.form-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.form-input.small { padding: 6px 8px; font-size: 12.5px; }
+.form-input:disabled { background: #f5f6f8; color: #aab0bc; }
+
+.id-preview { font-size: 11.5px; color: var(--text-muted); margin: 6px 0 0; }
+.id-preview code { background: #f0f2f6; padding: 1px 6px; border-radius: 4px; }
+
+.param-group { margin-top: 14px; }
+.param-group-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent-dark);
+  margin-bottom: 6px;
+}
+
+.param-table { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.param-table-head,
+.param-table-row {
+  display: grid;
+  grid-template-columns: 22px 1.5fr 0.85fr 0.65fr 0.85fr 100px;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+}
+.param-table-head {
+  background: #f7f8fb;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.param-table-row { border-top: 1px solid var(--border); font-size: 12.5px; }
+.param-table-row.is-on { background: var(--accent-soft); }
+.param-name { font-weight: 600; }
+.param-unit { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+
+.form-error {
+  margin-top: 12px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.form-success {
+  margin-top: 12px;
+  background: var(--success-soft);
+  color: var(--success);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.admin-card-head h3 { margin: 0; }
+.admin-card-actions { display: flex; gap: 6px; }
+
+.import-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: #f5f6f8;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: 0 0 10px;
+}
+
+.sparkline-empty {
+  font-size: 11px;
+  color: #c3c8d1;
+  text-align: center;
+}
+.sparkline { display: block; }
