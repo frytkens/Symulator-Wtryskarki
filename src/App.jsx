@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import ParamField from './components/ParamField.jsx'
 import { LABELS } from './data/labels.js'
 import { PARAMS, CLAMP_PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD, TRAINER_NOTES } from './data/params.js'
@@ -39,6 +39,17 @@ function computeResult(values) {
   return { overallQuality: round(overall), defectPct }
 }
 
+function computeProcessSummary(values) {
+  const speeds = ['Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5'].map(id => Number(values[id]) || 0)
+  const vAvg = speeds.reduce((a, b) => a + b, 0) / speeds.length
+  const czasWtrysku = vAvg // uproszczenie: v_śr traktowane wprost jako czas wtrysku (do ew. korekty)
+  const czasDocisku = Number(values.Td) || 0
+  const czasDozowania = 15 // stała na razie
+  const czasChlodzenia = 20 // stała na razie
+  const czasCyklu = czasWtrysku + czasDocisku + czasDozowania + czasChlodzenia
+  return { vAvg, czasWtrysku, czasDocisku, czasDozowania, czasChlodzenia, czasCyklu }
+}
+
 function trendMeta(trend) {
   switch (trend) {
     case 'better': return { text: 'Lepiej niż poprzednio', arrow: '▲', cls: 'better' }
@@ -61,10 +72,12 @@ export default function App() {
   const [wada, setWada] = useState('niedolanie')
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
   const lastLoggedValues = useRef(defaultValues())
-  const lastDefectPct = useRef(null)
+  const lastDefectPct = useRef(computeResult(defaultValues()).defectPct)
   const countdownRef = useRef(null)
 
   const cycling = countdown !== null
+
+  const processSummary = useMemo(() => computeProcessSummary(values), [values])
 
   useEffect(() => {
     if (!running) return
@@ -80,7 +93,7 @@ export default function App() {
     const fresh = randomChallengeValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = null
+    lastDefectPct.current = computeResult(fresh).defectPct
     setCycleLog([])
     setResultModal(null)
     setElapsedMs(0)
@@ -96,7 +109,7 @@ export default function App() {
     const fresh = defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = null
+    lastDefectPct.current = computeResult(fresh).defectPct
     setCycleLog([])
     setResultModal(null)
     clearInterval(countdownRef.current)
@@ -235,6 +248,36 @@ export default function App() {
               disabled={cycling}
             />
           ))}
+        </div>
+      </div>
+
+      <div className="process-summary">
+        <h3>Wynikowe parametry procesu</h3>
+        <div className="process-grid">
+          <div className="process-stat">
+            <span className="ps-label">v śr. wtrysku</span>
+            <span className="ps-value">{round(processSummary.vAvg, 1)} m/s</span>
+          </div>
+          <div className="process-stat">
+            <span className="ps-label">Czas wtrysku</span>
+            <span className="ps-value">{round(processSummary.czasWtrysku, 1)} s</span>
+          </div>
+          <div className="process-stat">
+            <span className="ps-label">Czas docisku</span>
+            <span className="ps-value">{round(processSummary.czasDocisku, 1)} s</span>
+          </div>
+          <div className="process-stat">
+            <span className="ps-label">Czas dozowania</span>
+            <span className="ps-value">{processSummary.czasDozowania} s</span>
+          </div>
+          <div className="process-stat">
+            <span className="ps-label">Czas chłodzenia</span>
+            <span className="ps-value">{processSummary.czasChlodzenia} s</span>
+          </div>
+          <div className="process-stat total">
+            <span className="ps-label">Czas cyklu (obliczony)</span>
+            <span className="ps-value">{round(processSummary.czasCyklu, 1)} s</span>
+          </div>
         </div>
       </div>
 
