@@ -23,25 +23,42 @@ function defaultValues() {
 }
 
 function randomChallengeValues(defectsRegistry, wada) {
+  const active = defectsRegistry[wada].params
+
   const generate = () => {
     const v = defaultValues()
-    const active = defectsRegistry[wada].params
     active.forEach(dp => {
       const p = PARAMS.find(x => x.id === dp.id) || CLAMP_PARAMS.find(x => x.id === dp.id)
       if (!p) return
-      const span = p.max - p.min
-      const rand = p.min + Math.random() * span
+      // Jeśli trener zdefiniował zakres losowania startowego dla tego parametru,
+      // losujemy tylko z niego (dla dowolnego parametru wady, nie tylko dominującego).
+      const useBadRange = Array.isArray(dp.badRange) && dp.badRange.length === 2
+      const lo = useBadRange ? Math.max(p.min, dp.badRange[0]) : p.min
+      const hi = useBadRange ? Math.min(p.max, dp.badRange[1]) : p.max
+      const span = hi - lo
+      const rand = lo + Math.random() * span
       v[p.id] = p.step < 1 ? round(rand, 2) : round(rand / p.step) * p.step
     })
     return v
   }
-  // nie losuj od razu "dobrej sztuki" – spróbuj kilka razy, zanim się poddasz
-  let attempt = generate()
-  for (let i = 0; i < 15; i++) {
-    if (computeResult(defectsRegistry, wada, attempt).defectPct > SUCCESS_THRESHOLD) break
-    attempt = generate()
+
+  // Nie losuj od razu "dobrej sztuki" ani wartości ledwo-ledwo wadliwej -
+  // ma to być wyraźna, jednoznaczna wada dydaktyczna, a nie coś w granicach szumu.
+  // Dlatego próg jest dużo wyższy niż SUCCESS_THRESHOLD (który decyduje o "rozwiązaniu"),
+  // a prób jest więcej, żeby dać czas na trafienie w wyraźnie złą strefę krzywej.
+  const CHALLENGE_MIN_DEFECT = Math.max(SUCCESS_THRESHOLD * 2.5, 35)
+  let best = generate()
+  let bestDefect = computeResult(defectsRegistry, wada, best).defectPct
+  for (let i = 0; i < 40; i++) {
+    if (bestDefect >= CHALLENGE_MIN_DEFECT) break
+    const attempt = generate()
+    const defectPct = computeResult(defectsRegistry, wada, attempt).defectPct
+    if (defectPct > bestDefect) {
+      best = attempt
+      bestDefect = defectPct
+    }
   }
-  return attempt
+  return best
 }
 
 function computeResult(defectsRegistry, wada, values) {
@@ -59,15 +76,34 @@ function computeResult(defectsRegistry, wada, values) {
 function computeProcessSummary(values) {
   const speeds = ['Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5'].map(id => Number(values[id]) || 0)
   const vAvg = speeds.reduce((a, b) => a + b, 0) / speeds.length
-  const czasWtrysku = vAvg // uproszczenie: v_śr traktowane wprost jako czas wtrysku (do ew. korekty)
+
+  // Droga wtrysku = skok dozowania + dekompresja - punkt przełączenia
+  // (np. doz=60, Deko=7, Pp=10 -> droga = 67 mm)
+  const doz = Number(values.doz) || 0
+  const deko = Number(values.Deko) || 0
+  const pp = Number(values.Pp) || 0
+  const droga = Math.max(0, doz + deko - pp)
+  const czasWtrysku = vAvg > 0 ? droga / vAvg : 0 // s = mm / (mm/s)
+
   const czasDocisku = Number(values.Td) || 0
-  const czasDozowania = 15 // stała na razie
+
+  // Dozowanie i chłodzenie biegną równolegle (ślimak dozuje w trakcie stygnięcia formy),
+  // więc do cyklu wchodzi ten dłuższy z dwóch, a nie suma obu.
+  // ZAŁOŻENIE (do weryfikacji): czas dozowania = skok dozowania / obroty ślimaka.
+  const ob = Number(values.Ob) || 0
+  const czasDozowania = ob > 0 ? doz / ob : 0
   const czasChlodzenia = 20 // stała na razie
-  const czasCyklu = czasWtrysku + czasDocisku + czasDozowania + czasChlodzenia
+  const czasChlodzenieDozowanie = Math.max(czasDozowania, czasChlodzenia)
+
+  const czasCyklu = czasWtrysku + czasDocisku + czasChlodzenieDozowanie
   const wydajnoscSzt = czasCyklu > 0 ? Math.round(3600 / czasCyklu) : 0
   const tcSetting = Number(values.Tc) || 0
   const tcDelta = round(czasCyklu - tcSetting, 1)
-  return { vAvg, czasWtrysku, czasDocisku, czasDozowania, czasChlodzenia, czasCyklu, wydajnoscSzt, tcSetting, tcDelta }
+  return {
+    vAvg, droga, czasWtrysku, czasDocisku,
+    czasDozowania, czasChlodzenia, czasChlodzenieDozowanie,
+    czasCyklu, wydajnoscSzt, tcSetting, tcDelta
+  }
 }
 
 function trendMeta(trend) {
@@ -399,8 +435,12 @@ export default function App() {
                 <span className="ps-value">{round(processResult.vAvg, 1)} m/s</span>
               </div>
               <div className="process-stat">
+                <span className="ps-label">Droga wtrysku</span>
+                <span className="ps-value">{round(processResult.droga, 1)} mm</span>
+              </div>
+              <div className="process-stat">
                 <span className="ps-label">Czas wtrysku</span>
-                <span className="ps-value">{round(processResult.czasWtrysku, 1)} s</span>
+                <span className="ps-value">{round(processResult.czasWtrysku, 2)} s</span>
               </div>
               <div className="process-stat">
                 <span className="ps-label">Czas docisku</span>
@@ -408,11 +448,15 @@ export default function App() {
               </div>
               <div className="process-stat">
                 <span className="ps-label">Czas dozowania</span>
-                <span className="ps-value">{processResult.czasDozowania} s</span>
+                <span className="ps-value">{round(processResult.czasDozowania, 1)} s</span>
               </div>
               <div className="process-stat">
                 <span className="ps-label">Czas chłodzenia</span>
                 <span className="ps-value">{processResult.czasChlodzenia} s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">→ do cyklu (max z dwóch powyżej)</span>
+                <span className="ps-value">{round(processResult.czasChlodzenieDozowanie, 1)} s</span>
               </div>
               <div className="process-stat total">
                 <span className="ps-label">Czas cyklu (obliczony)</span>
