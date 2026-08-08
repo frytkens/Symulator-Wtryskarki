@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { ALL_PARAMS, buildCurve, slugify } from '../data/params.js'
 
 function emptyRow() {
-  return { included: false, ok: '', weight: '', tolerance: '' }
+  return { included: false, ok: '', weight: '', tolerance: '', badMin: '', badMax: '' }
 }
 
 function CurveSparkline({ curve, min, max }) {
@@ -33,6 +33,7 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [importMsg, setImportMsg] = useState('')
+  const [editingId, setEditingId] = useState(null)
   const fileInputRef = useRef(null)
 
   const idPreview = slugify(label)
@@ -62,6 +63,36 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
     ALL_PARAMS.forEach(p => { r[p.id] = emptyRow() })
     setRows(r)
     setTrainerNotesText('')
+    setEditingId(null)
+  }
+
+  function handleEditClick(id) {
+    setError('')
+    setSuccess('')
+    const d = defects[id]
+    if (!d) return
+    setEditingId(id)
+    setLabel(d.label)
+    const r = {}
+    ALL_PARAMS.forEach(p => { r[p.id] = emptyRow() })
+    d.params.forEach(dp => {
+      // dla wad zapisanych przed dodaniem pól ok/tolerance (starsze zapisy)
+      // próbujemy odtworzyć "ok" z krzywej jako punkt o najwyższej jakości
+      const inferredOk = dp.curve && dp.curve.length
+        ? dp.curve.reduce((best, pt) => (pt[1] > best[1] ? pt : best), dp.curve[0])[0]
+        : ''
+      r[dp.id] = {
+        included: true,
+        ok: dp.ok !== undefined ? String(dp.ok) : String(inferredOk),
+        weight: String(dp.weight),
+        tolerance: dp.tolerance !== undefined ? String(dp.tolerance) : '',
+        badMin: Array.isArray(dp.badRange) ? String(dp.badRange[0]) : '',
+        badMax: Array.isArray(dp.badRange) ? String(dp.badRange[1]) : ''
+      }
+    })
+    setRows(r)
+    setTrainerNotesText((trainerNotes[id] || []).join('\n'))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function handleSave() {
@@ -73,13 +104,17 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
       setError('Podaj nazwę wady.')
       return
     }
-    const id = slugify(trimmedLabel)
+    const id = editingId || slugify(trimmedLabel)
     if (!id) {
       setError('Nazwa musi zawierać przynajmniej jedną literę lub cyfrę.')
       return
     }
-    if (defects[id]) {
+    if (!editingId && defects[id]) {
       setError(`Wada o identyfikatorze „${id}” już istnieje – zmień nazwę.`)
+      return
+    }
+    if (editingId && !customIds.has(editingId)) {
+      setError('Wady wbudowanej nie można edytować w tym miejscu.')
       return
     }
 
@@ -94,6 +129,15 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
       const v = Number(r.ok)
       return v < p.min || v > p.max
     })
+    const badRangeInvalidRow = includedParams.find(p => {
+      const r = rows[p.id]
+      if (r.badMin === '' && r.badMax === '') return false
+      if (r.badMin === '' || r.badMax === '') return true
+      const lo = Number(r.badMin), hi = Number(r.badMax)
+      if (isNaN(lo) || isNaN(hi) || lo >= hi) return true
+      if (lo < p.min || hi > p.max) return true
+      return false
+    })
     if (includedParams.length === 0) {
       setError('Wybierz przynajmniej jeden parametr i ustaw dla niego wagę > 0.')
       return
@@ -106,14 +150,22 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
       setError(`Wartość ok dla ${outOfRangeRow.id} musi być w zakresie ${outOfRangeRow.min}–${outOfRangeRow.max}.`)
       return
     }
+    if (badRangeInvalidRow) {
+      setError(`Zakres losowania startowego dla ${badRangeInvalidRow.id} musi mieć oba pola wypełnione, min < max, i mieścić się w ${badRangeInvalidRow.min}–${badRangeInvalidRow.max}.`)
+      return
+    }
 
     const defectParams = includedParams.map(p => {
       const r = rows[p.id]
       const tolerance = r.tolerance === '' ? undefined : Number(r.tolerance)
+      const badRange = r.badMin !== '' && r.badMax !== '' ? [Number(r.badMin), Number(r.badMax)] : undefined
       return {
         id: p.id,
         weight: Number(r.weight),
-        curve: buildCurve(Number(r.ok), p.min, p.max, tolerance)
+        ok: Number(r.ok),
+        tolerance,
+        curve: buildCurve(Number(r.ok), p.min, p.max, tolerance),
+        ...(badRange ? { badRange } : {})
       }
     })
 
@@ -122,8 +174,9 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
       .map(line => line.trim())
       .filter(Boolean)
 
+    const wasEditing = Boolean(editingId)
     onSave(id, { label: trimmedLabel, params: defectParams }, trainerNotes)
-    setSuccess(`Zapisano wadę „${trimmedLabel}”. Jest już dostępna w symulatorze.`)
+    setSuccess(wasEditing ? `Zapisano zmiany w wadzie „${trimmedLabel}”.` : `Zapisano wadę „${trimmedLabel}”. Jest już dostępna w symulatorze.`)
     resetForm()
   }
 
@@ -228,6 +281,9 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
                 <div className="defect-list-actions">
                   <button className="btn small" onClick={() => onUseInSimulator(id)}>użyj</button>
                   {customIds.has(id) && (
+                    <button className="btn small" onClick={() => handleEditClick(id)}>edytuj</button>
+                  )}
+                  {customIds.has(id) && (
                     <button className="btn small danger" onClick={() => handleDeleteClick(id, d.label)}>usuń</button>
                   )}
                 </div>
@@ -237,7 +293,7 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
         </div>
 
         <div className="admin-card">
-          <h3>Dodaj nową wadę</h3>
+          <h3>{editingId ? `Edytuj wadę „${label}”` : 'Dodaj nową wadę'}</h3>
 
           <label className="form-label">Nazwa wady</label>
           <input
@@ -247,7 +303,12 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
             onChange={e => setLabel(e.target.value)}
             placeholder="np. Rysy powierzchniowe"
           />
-          {label.trim() && <p className="id-preview">identyfikator: <code>{idPreview}</code></p>}
+          {label.trim() && (
+            <p className="id-preview">
+              identyfikator: <code>{editingId || idPreview}</code>
+              {editingId ? ' (edycja — identyfikator jest zablokowany)' : ''}
+            </p>
+          )}
 
           <label className="form-label" style={{ marginTop: 16 }}>Parametry i ich wartość „ok”</label>
 
@@ -261,6 +322,7 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
                   <span>Wartość ok</span>
                   <span>Waga</span>
                   <span>Tolerancja (opc.)</span>
+                  <span>Zakres losowania startowego (opc.)</span>
                   <span>Podgląd</span>
                 </div>
                 {params.map(p => {
@@ -302,6 +364,24 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
                         onChange={e => updateRow(p.id, { tolerance: e.target.value })}
                         placeholder="auto"
                       />
+                      <span style={{ display: 'flex', gap: 4 }}>
+                        <input
+                          type="number"
+                          className="form-input small"
+                          disabled={!row.included}
+                          value={row.badMin}
+                          onChange={e => updateRow(p.id, { badMin: e.target.value })}
+                          placeholder="od"
+                        />
+                        <input
+                          type="number"
+                          className="form-input small"
+                          disabled={!row.included}
+                          value={row.badMax}
+                          onChange={e => updateRow(p.id, { badMax: e.target.value })}
+                          placeholder="do"
+                        />
+                      </span>
                       <CurveSparkline curve={previewCurve} min={p.min} max={p.max} />
                     </div>
                   )
@@ -325,8 +405,13 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
           {success && <div className="form-success">{success}</div>}
 
           <button className="btn primary" style={{ marginTop: 16 }} onClick={handleSave}>
-            Zapisz wadę
+            {editingId ? 'Zapisz zmiany' : 'Zapisz wadę'}
           </button>
+          {editingId && (
+            <button className="btn" style={{ marginTop: 16, marginLeft: 8 }} onClick={resetForm}>
+              Anuluj edycję
+            </button>
+          )}
         </div>
       </div>
     </div>
