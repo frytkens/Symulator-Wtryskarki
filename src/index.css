@@ -514,6 +514,16 @@ h1 {
 
 .id-preview { font-size: 11.5px; color: var(--text-muted); margin: 6px 0 0; }
 .id-preview code { background: #f0f2f6; padding: 1px 6px; border-radius: 4px; }
+.field-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: #f5f7fb;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 6px 0 12px;
+}
 
 .param-group { margin-top: 14px; }
 .param-group-title {
