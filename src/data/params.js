@@ -99,11 +99,13 @@ export const DEFECTS = {
       },
       {
         id: 'Pw1', weight: 25,
-        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]]
+        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
+        badRange: [0, 60] // krzywa rośnie monotonicznie do 200 -> uczymy "trzeba zwiększyć"
       },
       {
         id: 'Deko', weight: 60,
-        curve: [[0,20],[5,35],[7,47],[10,75],[15,100],[20,95],[25,55],[30,20],[50,10],[100,5]]
+        curve: [[0,20],[5,35],[7,47],[10,75],[15,100],[20,95],[25,55],[30,20],[50,10],[100,5]],
+        badRange: [25, 100] // do weryfikacji: unika strefy dobrej ok. 0-20
       }
     ]
   },
@@ -114,12 +116,14 @@ export const DEFECTS = {
       {
         // start 80 mm/s (za dużo, przypala), cel ok. 5 mm/s, zbyt nisko też źle
         id: 'Pw5', weight: 10,
-        curve: [[0,40],[2,70],[5,100],[10,80],[20,50],[40,25],[80,5],[120,0],[200,0]]
+        curve: [[0,40],[2,70],[5,100],[10,80],[20,50],[40,25],[80,5],[120,0],[200,0]],
+        badRange: [40, 120] // do weryfikacji: unika strefy dobrej ok. 0-10
       },
       {
         // redukcja siły zwarcia do ok. 150t poprawia odpowietrzenie, niżej już źle
         id: 'Fz', weight: 8,
-        curve: [[0,10],[80,20],[120,45],[140,80],[150,100],[160,90],[180,60],[200,30]]
+        curve: [[0,10],[80,20],[120,45],[140,80],[150,100],[160,90],[180,60],[200,30]],
+        badRange: [160, 200] // domyślne 180t już powyżej optimum -> uczymy "trzeba obniżyć"
       }
     ]
   },
@@ -130,22 +134,26 @@ export const DEFECTS = {
       {
         // standard 80 mm/s za szybko, cel ok. 20 mm/s, za wolno też źle
         id: 'Pw1', weight: 8,
-        curve: [[0,20],[10,60],[20,100],[30,90],[50,60],[80,20],[120,5],[200,0]]
+        curve: [[0,20],[10,60],[20,100],[30,90],[50,60],[80,20],[120,5],[200,0]],
+        badRange: [40, 120] // domyślne 80 mm/s już powyżej optimum -> uczymy "trzeba obniżyć"
       },
       {
         // zwiększenie siły zwarcia pomaga, optimum przy max 200t
         id: 'Fz', weight: 7,
-        curve: [[0,10],[50,20],[100,35],[150,60],[180,85],[200,100]]
+        curve: [[0,10],[50,20],[100,35],[150,60],[180,85],[200,100]],
+        badRange: [50, 150] // krzywa rośnie monotonicznie do 200 -> uczymy "trzeba zwiększyć"
       },
       {
         // +2mm od standardu (10) OK, dalej źle – ryzyko niedolania
         id: 'Pp', weight: 10,
-        curve: [[0,20],[5,35],[8,55],[10,75],[12,100],[14,80],[16,50],[20,20],[25,5]]
+        curve: [[0,20],[5,35],[8,55],[10,75],[12,100],[14,80],[16,50],[20,20],[25,5]],
+        badRange: [16, 25] // do weryfikacji: unika strefy dobrej ok. 8-14
       },
       {
         // redukcja o 10 bar od standardu (40) OK, za dużo ciśnienia źle
         id: 'Pd', weight: 8,
-        curve: [[0,70],[10,85],[20,95],[30,100],[40,70],[60,40],[100,15],[150,5],[220,0]]
+        curve: [[0,70],[10,85],[20,95],[30,100],[40,70],[60,40],[100,15],[150,5],[220,0]],
+        badRange: [50, 120] // domyślne 40 bar już powyżej optimum 30 -> uczymy "trzeba obniżyć"
       },
       {
         // redukcja T1 o 10°C od standardu (220) OK, niżej nie ok
