@@ -311,6 +311,13 @@ export default function DefectManager({ defects, customIds, trainerNotes, onSave
           )}
 
           <label className="form-label" style={{ marginTop: 16 }}>Parametry i ich wartość „ok”</label>
+          <p className="field-hint">
+            💡 Zakres losowania startowego decyduje, po której stronie optimum („wartość ok”) kursant zacznie —
+            to on uczy kierunku korekty. Jeśli chcesz nauczyć „trzeba <b>obniżyć</b> ten parametr”, wpisz zakres
+            <b> powyżej</b> wartości ok. Jeśli „trzeba <b>podnieść</b>”, wpisz zakres <b>poniżej</b> wartości ok.
+            Zostaw puste tylko wtedy, gdy błąd w obie strony ma być częścią lekcji (wąskie okno optimum) —
+            wtedy losowanie może trafić losowo za nisko lub za wysoko i zgubić jednoznaczny przekaz.
+          </p>
 
           {Object.entries(grouped).map(([groupName, params]) => (
             <div key={groupName} className="param-group">
