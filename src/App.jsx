@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import ParamField from './components/ParamField.jsx'
 import { LABELS } from './data/labels.js'
 import { PARAMS, CLAMP_PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD, TRAINER_NOTES } from './data/params.js'
@@ -47,7 +47,10 @@ function computeProcessSummary(values) {
   const czasDozowania = 15 // stała na razie
   const czasChlodzenia = 20 // stała na razie
   const czasCyklu = czasWtrysku + czasDocisku + czasDozowania + czasChlodzenia
-  return { vAvg, czasWtrysku, czasDocisku, czasDozowania, czasChlodzenia, czasCyklu }
+  const wydajnoscSzt = czasCyklu > 0 ? Math.round(3600 / czasCyklu) : 0
+  const tcSetting = Number(values.Tc) || 0
+  const tcDelta = round(czasCyklu - tcSetting, 1)
+  return { vAvg, czasWtrysku, czasDocisku, czasDozowania, czasChlodzenia, czasCyklu, wydajnoscSzt, tcSetting, tcDelta }
 }
 
 function trendMeta(trend) {
@@ -77,7 +80,7 @@ export default function App() {
 
   const cycling = countdown !== null
 
-  const processSummary = useMemo(() => computeProcessSummary(values), [values])
+  const [processResult, setProcessResult] = useState(null) // null dopóki żaden cykl się nie zakończył
 
   useEffect(() => {
     if (!running) return
@@ -96,6 +99,7 @@ export default function App() {
     lastDefectPct.current = computeResult(fresh).defectPct
     setCycleLog([])
     setResultModal(null)
+    setProcessResult(null)
     setElapsedMs(0)
     setSolved(false)
     startRef.current = Date.now()
@@ -112,6 +116,7 @@ export default function App() {
     lastDefectPct.current = computeResult(fresh).defectPct
     setCycleLog([])
     setResultModal(null)
+    setProcessResult(null)
     clearInterval(countdownRef.current)
     setCountdown(null)
   }, [])
@@ -150,6 +155,8 @@ export default function App() {
                 unit: p.unit
               }))
             lastLoggedValues.current = currentValues
+
+            setProcessResult(computeProcessSummary(currentValues))
 
             setCycleLog(log => [
               { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend },
@@ -253,32 +260,48 @@ export default function App() {
 
       <div className="process-summary">
         <h3>Wynikowe parametry procesu</h3>
-        <div className="process-grid">
-          <div className="process-stat">
-            <span className="ps-label">v śr. wtrysku</span>
-            <span className="ps-value">{round(processSummary.vAvg, 1)} m/s</span>
-          </div>
-          <div className="process-stat">
-            <span className="ps-label">Czas wtrysku</span>
-            <span className="ps-value">{round(processSummary.czasWtrysku, 1)} s</span>
-          </div>
-          <div className="process-stat">
-            <span className="ps-label">Czas docisku</span>
-            <span className="ps-value">{round(processSummary.czasDocisku, 1)} s</span>
-          </div>
-          <div className="process-stat">
-            <span className="ps-label">Czas dozowania</span>
-            <span className="ps-value">{processSummary.czasDozowania} s</span>
-          </div>
-          <div className="process-stat">
-            <span className="ps-label">Czas chłodzenia</span>
-            <span className="ps-value">{processSummary.czasChlodzenia} s</span>
-          </div>
-          <div className="process-stat total">
-            <span className="ps-label">Czas cyklu (obliczony)</span>
-            <span className="ps-value">{round(processSummary.czasCyklu, 1)} s</span>
-          </div>
-        </div>
+        {processResult ? (
+          <>
+            <div className="process-grid">
+              <div className="process-stat">
+                <span className="ps-label">v śr. wtrysku</span>
+                <span className="ps-value">{round(processResult.vAvg, 1)} m/s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">Czas wtrysku</span>
+                <span className="ps-value">{round(processResult.czasWtrysku, 1)} s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">Czas docisku</span>
+                <span className="ps-value">{round(processResult.czasDocisku, 1)} s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">Czas dozowania</span>
+                <span className="ps-value">{processResult.czasDozowania} s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">Czas chłodzenia</span>
+                <span className="ps-value">{processResult.czasChlodzenia} s</span>
+              </div>
+              <div className="process-stat total">
+                <span className="ps-label">Czas cyklu (obliczony)</span>
+                <span className="ps-value">{round(processResult.czasCyklu, 1)} s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">Wydajność</span>
+                <span className="ps-value">{processResult.wydajnoscSzt} szt./h</span>
+              </div>
+            </div>
+
+            {processResult.tcDelta > 0 && (
+              <div className="tc-warning">
+                ⚠ Obliczony czas cyklu jest o {processResult.tcDelta}s dłuższy niż nastawa Tc ({processResult.tcSetting}s) – maszyna nie zdąży w zadanym czasie.
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="process-summary-empty">Uruchom „Start cyklu”, żeby zobaczyć wynikowe parametry procesu.</p>
+        )}
       </div>
 
       <div className="cycle-log">
