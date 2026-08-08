@@ -1,10 +1,15 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ParamField from './components/ParamField.jsx'
+import DefectManager from './components/DefectManager.jsx'
 import { LABELS } from './data/labels.js'
-import { PARAMS, CLAMP_PARAMS, CURVES, curveVal, SUCCESS_THRESHOLD, TRAINER_NOTES } from './data/params.js'
+import {
+  PARAMS, CLAMP_PARAMS, ALL_PARAMS,
+  DEFECTS as BUILTIN_DEFECTS, TRAINER_NOTES as BUILTIN_TRAINER_NOTES,
+  curveVal, SUCCESS_THRESHOLD
+} from './data/params.js'
 
-const ALL_PARAMS = [...PARAMS, ...CLAMP_PARAMS]
 const CYCLE_SECONDS = 5
+const STORAGE_KEY = 'wtryskarka_custom_wady'
 
 function round(n, d = 0) {
   const f = Math.pow(10, d)
@@ -17,23 +22,35 @@ function defaultValues() {
   return v
 }
 
-function randomChallengeValues() {
-  const v = defaultValues()
-  const active = PARAMS.filter(p => p.active)
-  active.forEach(p => {
-    const span = p.max - p.min
-    const rand = p.min + Math.random() * span
-    v[p.id] = p.step < 1 ? round(rand, 2) : round(rand / p.step) * p.step
-  })
-  return v
+function randomChallengeValues(defectsRegistry, wada) {
+  const generate = () => {
+    const v = defaultValues()
+    const active = defectsRegistry[wada].params
+    active.forEach(dp => {
+      const p = PARAMS.find(x => x.id === dp.id) || CLAMP_PARAMS.find(x => x.id === dp.id)
+      if (!p) return
+      const span = p.max - p.min
+      const rand = p.min + Math.random() * span
+      v[p.id] = p.step < 1 ? round(rand, 2) : round(rand / p.step) * p.step
+    })
+    return v
+  }
+  // nie losuj od razu "dobrej sztuki" – spróbuj kilka razy, zanim się poddasz
+  let attempt = generate()
+  for (let i = 0; i < 15; i++) {
+    if (computeResult(defectsRegistry, wada, attempt).defectPct > SUCCESS_THRESHOLD) break
+    attempt = generate()
+  }
+  return attempt
 }
 
-function computeResult(values) {
-  const activeParams = PARAMS.filter(p => p.active)
+function computeResult(defectsRegistry, wada, values) {
+  const defectParams = defectsRegistry[wada].params
+  const weightSum = defectParams.reduce((s, p) => s + p.weight, 0)
   let overall = 0
-  activeParams.forEach(p => {
-    const q = curveVal(Number(values[p.id]), CURVES[p.id])
-    overall += q * p.weight
+  defectParams.forEach(p => {
+    const q = curveVal(Number(values[p.id]), p.curve)
+    overall += q * (p.weight / weightSum)
   })
   const defectPct = Math.max(0, Math.min(100, Math.round(100 - overall)))
   return { overallQuality: round(overall), defectPct }
@@ -62,7 +79,33 @@ function trendMeta(trend) {
   }
 }
 
+function loadCustomWady() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return { defects: {}, trainerNotes: {} }
+    const parsed = JSON.parse(raw)
+    return { defects: parsed.defects || {}, trainerNotes: parsed.trainerNotes || {} }
+  } catch {
+    return { defects: {}, trainerNotes: {} }
+  }
+}
+
+function saveCustomWady(customDefects, customTrainerNotes) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ defects: customDefects, trainerNotes: customTrainerNotes }))
+  } catch {
+    // localStorage niedostępny (np. tryb prywatny) – po prostu nie zapisujemy trwale
+  }
+}
+
 export default function App() {
+  const [view, setView] = useState('sim') // 'sim' | 'admin'
+  const [customDefects, setCustomDefects] = useState(() => loadCustomWady().defects)
+  const [customTrainerNotes, setCustomTrainerNotes] = useState(() => loadCustomWady().trainerNotes)
+  const defects = { ...BUILTIN_DEFECTS, ...customDefects }
+  const trainerNotesAll = { ...BUILTIN_TRAINER_NOTES, ...customTrainerNotes }
+  const customIds = new Set(Object.keys(customDefects))
+
   const [values, setValues] = useState(defaultValues)
   const [running, setRunning] = useState(false)
   const [solved, setSolved] = useState(false)
@@ -75,12 +118,62 @@ export default function App() {
   const [wada, setWada] = useState('niedolanie')
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
   const lastLoggedValues = useRef(defaultValues())
-  const lastDefectPct = useRef(computeResult(defaultValues()).defectPct)
+  const lastDefectPct = useRef(computeResult(defects, wada, defaultValues()).defectPct)
   const countdownRef = useRef(null)
 
   const cycling = countdown !== null
+  const activeIds = new Set(defects[wada].params.map(p => p.id))
 
   const [processResult, setProcessResult] = useState(null) // null dopóki żaden cykl się nie zakończył
+
+  function handleSaveDefect(id, defectObj, trainerNotes) {
+    const nextDefects = { ...customDefects, [id]: defectObj }
+    setCustomDefects(nextDefects)
+    let nextNotes = customTrainerNotes
+    if (trainerNotes.length > 0) {
+      nextNotes = { ...customTrainerNotes, [id]: trainerNotes }
+      setCustomTrainerNotes(nextNotes)
+    }
+    saveCustomWady(nextDefects, nextNotes)
+  }
+
+  function handleDeleteDefect(id) {
+    const nextDefects = { ...customDefects }
+    delete nextDefects[id]
+    const nextNotes = { ...customTrainerNotes }
+    delete nextNotes[id]
+    setCustomDefects(nextDefects)
+    setCustomTrainerNotes(nextNotes)
+    saveCustomWady(nextDefects, nextNotes)
+    if (wada === id) {
+      handleWadaChange('niedolanie')
+    }
+  }
+
+  function handleUseInSimulator(id) {
+    handleWadaChange(id)
+    setView('sim')
+  }
+
+  function handleImportDefects(importedDefects, importedTrainerNotes) {
+    const nextDefects = { ...customDefects }
+    const nextNotes = { ...customTrainerNotes }
+    let addedCount = 0
+    const skipped = []
+    Object.entries(importedDefects).forEach(([id, defectObj]) => {
+      if (defects[id]) {
+        skipped.push(id)
+        return
+      }
+      nextDefects[id] = defectObj
+      if (importedTrainerNotes[id]) nextNotes[id] = importedTrainerNotes[id]
+      addedCount++
+    })
+    setCustomDefects(nextDefects)
+    setCustomTrainerNotes(nextNotes)
+    saveCustomWady(nextDefects, nextNotes)
+    return { addedCount, skipped }
+  }
 
   useEffect(() => {
     if (!running) return
@@ -93,10 +186,10 @@ export default function App() {
   }, [running])
 
   const handleStart = useCallback(() => {
-    const fresh = randomChallengeValues()
+    const fresh = randomChallengeValues(defects, wada)
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(fresh).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
@@ -104,7 +197,7 @@ export default function App() {
     setSolved(false)
     startRef.current = Date.now()
     setRunning(true)
-  }, [])
+  }, [wada, customDefects])
 
   const handleReset = useCallback(() => {
     setRunning(false)
@@ -113,13 +206,29 @@ export default function App() {
     const fresh = defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(fresh).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
     clearInterval(countdownRef.current)
     setCountdown(null)
-  }, [])
+  }, [wada, customDefects])
+
+  const handleWadaChange = useCallback((newWada) => {
+    setWada(newWada)
+    setRunning(false)
+    setSolved(false)
+    setElapsedMs(0)
+    const fresh = defaultValues()
+    setValues(fresh)
+    lastLoggedValues.current = fresh
+    lastDefectPct.current = computeResult(defects, newWada, fresh).defectPct
+    setCycleLog([])
+    setResultModal(null)
+    setProcessResult(null)
+    clearInterval(countdownRef.current)
+    setCountdown(null)
+  }, [customDefects])
 
   const handleChange = useCallback((id, raw) => {
     setValues(prev => ({ ...prev, [id]: raw === '' ? '' : Number(raw) }))
@@ -134,7 +243,7 @@ export default function App() {
           clearInterval(countdownRef.current)
           // cykl zakończony – policz wynik i zapisz do logu
           setValues(currentValues => {
-            const { defectPct } = computeResult(currentValues)
+            const { defectPct } = computeResult(defects, wada, currentValues)
             const isSolved = defectPct <= SUCCESS_THRESHOLD
 
             let trend = 'first'
@@ -175,7 +284,7 @@ export default function App() {
         return prev - 1
       })
     }, 1000)
-  }, [cycling, running, solved])
+  }, [cycling, running, solved, wada, customDefects])
 
   useEffect(() => {
     if (countdown === 0) {
@@ -188,19 +297,39 @@ export default function App() {
 
   const seconds = (elapsedMs / 1000).toFixed(1)
 
+  if (view === 'admin') {
+    return (
+      <DefectManager
+        defects={defects}
+        customIds={customIds}
+        trainerNotes={trainerNotesAll}
+        onSave={handleSaveDefect}
+        onDelete={handleDeleteDefect}
+        onImport={handleImportDefects}
+        onUseInSimulator={handleUseInSimulator}
+        onClose={() => setView('sim')}
+      />
+    )
+  }
+
   return (
     <div className="page">
-      <h1>Symulator wtryskarki – panel parametrów</h1>
-      <p className="sub">
-        Kliknij start, żeby wylosować nieprawidłowe ustawienia. Ustaw parametry, uruchom cykl przyciskiem
-        „Start cyklu” i sprawdź wynik – tak jak na prawdziwej maszynie.
-        Niebieskie obramowanie = parametr ma wpływ na wybraną wadę.
-      </p>
+      <div className="page-header-row">
+        <div>
+          <h1>Symulator wtryskarki – panel parametrów</h1>
+          <p className="sub">
+            Kliknij start, żeby wylosować nieprawidłowe ustawienia. Ustaw parametry, uruchom cykl przyciskiem
+            „Start cyklu” i sprawdź wynik – tak jak na prawdziwej maszynie.
+            Niebieskie obramowanie = parametr ma wpływ na wybraną wadę.
+          </p>
+        </div>
+        <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
+      </div>
 
-      <select className="wada-select" value={wada} onChange={e => setWada(e.target.value)}>
-        <option value="niedolanie">Niedolanie – nieprawidłowa praca zaworu zwrotnego</option>
-        <option value="grat" disabled>Grat (wkrótce)</option>
-        <option value="zapadniecie" disabled>Zapadnięcie (wkrótce)</option>
+      <select className="wada-select" value={wada} onChange={e => handleWadaChange(e.target.value)}>
+        {Object.entries(defects).map(([id, d]) => (
+          <option key={id} value={id}>{d.label}</option>
+        ))}
       </select>
 
       <div className="timer-bar">
@@ -240,6 +369,7 @@ export default function App() {
               value={values[p.id]}
               onChange={handleChange}
               disabled={cycling}
+              active={activeIds.has(p.id)}
             />
           ))}
         </div>
@@ -253,6 +383,7 @@ export default function App() {
               value={values[p.id]}
               onChange={handleChange}
               disabled={cycling}
+              active={activeIds.has(p.id)}
             />
           ))}
         </div>
@@ -358,8 +489,8 @@ export default function App() {
             </div>
             <p className="verdict-sub">
               {resultModal.solved
-                ? 'Parametry dają akceptowalne ryzyko niedolania.'
-                : 'Zbyt wysokie ryzyko niedolania przy tych parametrach.'}
+                ? 'Parametry dają akceptowalne ryzyko wystąpienia tej wady.'
+                : 'Zbyt wysokie ryzyko wystąpienia tej wady przy tych parametrach.'}
             </p>
 
             {!resultModal.solved && (
@@ -369,11 +500,11 @@ export default function App() {
               </div>
             )}
 
-            {resultModal.solved && TRAINER_NOTES[wada] && (
+            {resultModal.solved && trainerNotesAll[wada] && (
               <div className="trainer-notes">
                 <h4>Do omówienia z trenerem</h4>
                 <ul>
-                  {TRAINER_NOTES[wada].map(item => <li key={item}>{item}</li>)}
+                  {trainerNotesAll[wada].map(item => <li key={item}>{item}</li>)}
                 </ul>
               </div>
             )}
