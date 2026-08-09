@@ -89,299 +89,211 @@ export const SUCCESS_THRESHOLD = 12 // % ryzyka, poniżej którego uznajemy sztu
 // Każda wada ma własną listę parametrów: id (musi istnieć w PARAMS/CLAMP_PARAMS),
 // waga (dowolna liczba – nie musi sumować się do 100, jest normalizowana automatycznie)
 // i krzywą jakości: [x, jakość 0–100] – gdzie x to wartość parametru.
+// Źródło danych: prezentacja ENGEL "PPS | Process Plastic Surface" (01-PPS-PL.pdf).
+// 6 wad wybranych jako te, które mają jednoznaczne, konkretne odzwierciedlenie w naszych
+// parametrach maszyny. Kierunek każdej krzywej (rosnąca/malejąca/okno) i badRange są
+// wyprowadzone wprost z sekcji "działania naprawcze" w prezentacji.
 export const DEFECTS = {
+
+  // Prezentacja: "Nie całkowicie wypełnione detale" (str. 33-37).
+  // POPRAWKA: wcześniej wada była zbudowana wokół "zaworu zwrotnego" i dekompresji (Deko)
+  // jako głównej przyczyny - nie ma to potwierdzenia w materiale źródłowym. Zawór zwrotny
+  // jest tam wymieniony tylko jako jeden z punktów kontrolnych przy niestabilnej poduszce,
+  // nie jako dominująca przyczyna. Właściwe przyczyny wg PDF: za mała objętość dozowania,
+  // za niskie ciśnienie/prędkość wtrysku, zbyt wczesny punkt przełączenia, za niska temperatura.
   niedolanie: {
-    label: 'Niedolanie – nieprawidłowa praca zaworu zwrotnego',
+    label: 'Niedolanie – detal niecałkowicie wypełniony',
     params: [
       {
-        id: 'T1', weight: 15,
-        curve: [[0,10],[100,30],[150,60],[180,85],[200,95],[220,100],[230,90],[240,80],[250,60],[260,35],[270,15],[300,5],[350,0]]
+        // PDF: "Czy ślimak jest w przednim położeniu? -> Zwiększyć dozowanie"
+        // za mała objętość dozowanego materiału = za mało tworzywa na wypraskę
+        id: 'doz', weight: 40,
+        curve: [[0,10],[20,25],[40,45],[60,65],[80,85],[100,95],[130,100],[150,100]],
+        badRange: [0, 40] // domyślne 60mm daje jakość ~65% (jeszcze nie optimum) -> uczymy "zwiększ dozowanie"
       },
       {
-        id: 'Pw1', weight: 25,
+        // PDF: "Zmienić prędkość wtrysku (+)"
+        id: 'Pw1', weight: 35,
         curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
-        badRange: [0, 60] // krzywa rośnie monotonicznie do 200 -> uczymy "trzeba zwiększyć"
+        badRange: [0, 60] // krzywa rośnie monotonicznie -> uczymy "zwiększ prędkość"
       },
       {
-        id: 'Deko', weight: 60,
-        curve: [[0,20],[5,35],[7,47],[10,75],[15,100],[20,95],[25,55],[30,20],[50,10],[100,5]],
-        badRange: [25, 100] // do weryfikacji: unika strefy dobrej ok. 0-20
+        // PDF: "Podnieść temperaturę tworzywa" (jako jedno z działań naprawczych)
+        id: 'T1', weight: 25,
+        curve: [[150,20],[200,50],[220,65],[250,85],[280,100],[320,95],[350,90]],
+        badRange: [150, 220] // domyślne 220°C daje jakość ~65% -> uczymy "zwiększ temperaturę"
       }
     ]
   },
 
+  // Prezentacja: "Efekt diesla/przypalenia" (str. 116-119). Bez zmian względem poprzedniej
+  // wersji - już wcześniej zweryfikowane jako zgodne z PDF.
   przypalenia: {
-    label: 'Przypalenia – spalenia materiału na detalu',
+    label: 'Przypalenia – efekt diesla, spalenia materiału na detalu',
     params: [
       {
-        // start 80 mm/s (za dużo, przypala), cel ok. 5 mm/s, zbyt nisko też źle
+        // PDF: "Możliwa redukcja siły zwarcia? -> Zmniejszyć siłę zwarcia" (pierwsze działanie)
+        id: 'Fz', weight: 12,
+        curve: [[0,10],[80,20],[120,45],[140,80],[150,100],[160,90],[180,60],[200,30]],
+        badRange: [160, 200] // domyślne 180t powyżej optimum 150t -> uczymy "obniż"
+      },
+      {
+        // PDF: "Zmniejszyć prędkość wtrysku"
         id: 'Pw5', weight: 10,
         curve: [[0,40],[2,70],[5,100],[10,80],[20,50],[40,25],[80,5],[120,0],[200,0]],
-        badRange: [40, 120] // do weryfikacji: unika strefy dobrej ok. 0-10
-      },
-      {
-        // redukcja siły zwarcia do ok. 150t poprawia odpowietrzenie, niżej już źle
-        id: 'Fz', weight: 8,
-        curve: [[0,10],[80,20],[120,45],[140,80],[150,100],[160,90],[180,60],[200,30]],
-        badRange: [160, 200] // domyślne 180t już powyżej optimum -> uczymy "trzeba obniżyć"
+        badRange: [40, 120] // domyślne 80 powyżej optimum 5 -> uczymy "obniż"
       }
     ]
   },
 
+  // Prezentacja: "Przetryśnięte detale" / zapływki (str. 58-61).
   wyplywy: {
-    label: 'Wypływy – nadmiar materiału na linii podziału formy',
+    label: 'Wypływy – przetryśnięte detale na linii podziału formy',
     params: [
       {
-        // standard 80 mm/s za szybko, cel ok. 20 mm/s, za wolno też źle
-        id: 'Pw1', weight: 8,
-        curve: [[0,20],[10,60],[20,100],[30,90],[50,60],[80,20],[120,5],[200,0]],
-        badRange: [40, 120] // domyślne 80 mm/s już powyżej optimum -> uczymy "trzeba obniżyć"
-      },
-      {
-        // zwiększenie siły zwarcia pomaga, optimum przy max 200t
-        id: 'Fz', weight: 7,
+        // PDF: "Możliwość zmiany siły zwarcia? -> Zwiększyć siłę zwarcia" (pierwsze działanie)
+        id: 'Fz', weight: 30,
         curve: [[0,10],[50,20],[100,35],[150,60],[180,85],[200,100]],
-        badRange: [50, 150] // krzywa rośnie monotonicznie do 200 -> uczymy "trzeba zwiększyć"
+        badRange: [50, 150] // krzywa rośnie monotonicznie do 200t -> uczymy "zwiększ"
       },
       {
-        // +2mm od standardu (10) OK, dalej źle – ryzyko niedolania
-        id: 'Pp', weight: 10,
-        curve: [[0,20],[5,35],[8,55],[10,75],[12,100],[14,80],[16,50],[20,20],[25,5]],
-        badRange: [16, 25] // do weryfikacji: unika strefy dobrej ok. 8-14
-      },
-      {
-        // redukcja o 10 bar od standardu (40) OK, za dużo ciśnienia źle
-        id: 'Pd', weight: 8,
-        curve: [[0,70],[10,85],[20,95],[30,100],[40,70],[60,40],[100,15],[150,5],[220,0]],
-        badRange: [50, 120] // domyślne 40 bar już powyżej optimum 30 -> uczymy "trzeba obniżyć"
-      },
-      {
-        // redukcja T1 o 10°C od standardu (220) OK, niżej nie ok
-        id: 'T1', weight: 2.5,
-        curve: [[180,20],[190,40],[200,65],[210,100],[220,75],[230,50],[240,25],[250,10]]
-      },
-      {
-        // redukcja T2 o 10°C od standardu (230) OK, niżej nie ok
-        id: 'T2', weight: 2.5,
-        curve: [[190,20],[200,40],[210,65],[220,100],[230,75],[240,50],[250,25],[260,10]]
-      }
-    ]
-  }
-}
-
-export const DEFECTS_EXTRA = {
-  wypaczenia: {
-    label: 'Wypaczenia – odkształcenie detalu po wyjęciu z formy',
-    params: [
-      {
-        // za krótki czas docisku -> nierównomierny skurcz -> wypaczenie
-        id: 'Td', weight: 20,
-        curve: [[0,20],[1,30],[2,50],[3,75],[5,100],[8,95],[15,90],[30,85]],
-        badRange: [0, 3] // domyślne 5s to już optimum -> uczymy "trzeba wydłużyć"
-      },
-      {
-        // za niskie ciśnienie docisku -> nierównomierny skurcz -> wypaczenie
-        id: 'Pd', weight: 15,
-        curve: [[0,20],[10,40],[20,60],[30,80],[40,100],[60,95],[100,85],[220,75]],
-        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "trzeba zwiększyć"
-      }
-    ]
-  },
-
-  zapadniecia: {
-    label: 'Zapadnięcia – lokalne wgłębienia na powierzchni detalu',
-    params: [
-      {
-        // za niskie ciśnienie docisku -> materiał się kurczy -> zapadnięcie
-        id: 'Pd', weight: 30,
-        curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
-        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "trzeba zwiększyć"
-      },
-      {
-        // za krótki czas docisku -> zbyt wcześnie ustaje podawanie materiału
-        id: 'Td', weight: 20,
-        curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
-        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "trzeba wydłużyć"
-      }
-    ]
-  },
-
-  smugi: {
-    label: 'Smugi srebrzyste – ślady wilgoci/degradacji na powierzchni',
-    params: [
-      {
-        // za wysoka temp. dyszy -> degradacja termiczna materiału -> smugi
-        id: 'T1', weight: 25,
-        curve: [[150,60],[180,90],[200,100],[220,80],[250,50],[280,25],[320,10],[350,5]],
-        badRange: [230, 350] // domyślne 220°C już powyżej optimum 200°C -> uczymy "trzeba obniżyć"
-      },
-      {
-        // za duża prędkość wtrysku -> ścinanie i przegrzewanie materiału -> smugi
+        // PDF: "Przetrysk w okolicy punktu wtrysku? -> Zredukować prędkość wtrysku"
         id: 'Pw1', weight: 20,
-        curve: [[0,60],[20,90],[40,100],[80,70],[120,40],[160,15],[200,5]],
-        badRange: [100, 200] // domyślne 80 mm/s już powyżej optimum 40 -> uczymy "trzeba obniżyć"
+        curve: [[0,20],[10,60],[20,100],[30,90],[50,60],[80,20],[120,5],[200,0]],
+        badRange: [40, 120] // domyślne 80 powyżej optimum 20 -> uczymy "obniż"
       },
       {
-        // za niskie przeciwciśnienie -> słabe odgazowanie/mieszanie -> uwięziona wilgoć/powietrze
-        id: 'Prz', weight: 15,
-        curve: [[0,10],[5,30],[10,55],[20,80],[30,100],[40,95]],
-        badRange: [0, 15] // domyślne 5 bar poniżej optimum 30 -> uczymy "trzeba zwiększyć"
+        // PDF: "Zredukować ciśnienie docisku" (przy przetrysku od strony pików ciśnienia)
+        id: 'Pd', weight: 20,
+        curve: [[0,70],[10,85],[20,95],[30,100],[40,70],[60,40],[100,15],[150,5],[220,0]],
+        badRange: [50, 120] // domyślne 40 bar powyżej optimum 30 -> uczymy "obniż"
+      },
+      {
+        // PDF: "Zoptymalizować punkt przełączenia" / "Przełączyć wcześniej na docisk"
+        id: 'Pp', weight: 20,
+        curve: [[0,20],[5,35],[8,55],[10,75],[12,100],[14,80],[16,50],[20,20],[25,5]],
+        badRange: [16, 25] // domyślne 10mm blisko optimum 12mm, wyżej już źle -> uczymy "obniż"
+      },
+      {
+        // PDF: "Zredukować temperaturę stopu"
+        id: 'T1', weight: 10,
+        curve: [[180,20],[190,40],[200,65],[210,100],[220,75],[230,50],[240,25],[250,10]],
+        badRange: [220, 250] // domyślne 220°C powyżej optimum 210°C -> uczymy "obniż"
       }
     ]
   },
 
-  pecherze: {
-    label: 'Pęcherze – puste przestrzenie wewnątrz detalu',
+  // Prezentacja: "Wciągi/zapady" (str. 42-47).
+  zapadniecia: {
+    label: 'Zapadnięcia – wciągi, lokalne wgłębienia na powierzchni',
     params: [
       {
-        // za niskie ciśnienie docisku -> niedopełniony ubytek skurczowy -> pęcherz
-        id: 'Pd', weight: 30,
+        // PDF: "Podnieść ciśnienie docisku" / "Podwyższyć docisk"
+        id: 'Pd', weight: 40,
         curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
-        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "trzeba zwiększyć"
+        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "zwiększ"
       },
       {
-        // za krótki czas docisku -> materiał nie zdąży wypełnić ubytku
-        id: 'Td', weight: 25,
+        // PDF: "Zoptymalizować (wydłużyć) czas docisku"
+        id: 'Td', weight: 35,
         curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
-        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "trzeba wydłużyć"
+        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "wydłuż"
+      },
+      {
+        // PDF: "zmienić (+) prędkość wtrysku" (zapady daleko od dolotu)
+        id: 'Pw1', weight: 25,
+        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
+        badRange: [0, 60] // krzywa rośnie monotonicznie -> uczymy "zwiększ"
       }
     ]
   },
 
+  // Prezentacja: "Jamy skurczowe/pęcherzyki" (str. 47-51) - ubytki z powodu niezrównoważonego
+  // skurczu materiału (nie mylić z "pęcherzykami powietrza" z zaciągniętego powietrza,
+  // które są osobną wadą związaną z odpowietrzeniem formy, nieuwzględnioną tu).
+  pecherze: {
+    label: 'Pęcherze / jamy skurczowe – puste przestrzenie wewnątrz detalu',
+    params: [
+      {
+        // PDF: "Podwyższyć ciśnienie docisku"
+        id: 'Pd', weight: 55,
+        curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
+        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "zwiększ"
+      },
+      {
+        // PDF: "Zoptymalizować czas docisku"
+        id: 'Td', weight: 45,
+        curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
+        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "wydłuż"
+      }
+    ]
+  },
+
+  // Prezentacja: "Rozwarstwianie się zewnętrznych warstw" (str. 120-121).
+  // POPRAWKA: wcześniej kierunek był odwrócony (uczyliśmy "zwiększ prędkość wtrysku").
+  // PDF wprost: przyczyną są "wysokie naprężenia poprzeczne" wynikające z WYSOKIEJ prędkości
+  // wtrysku, a działanie naprawcze to "zredukować prędkość wtrysku". Temperatura masy jest
+  // w PDF opisana jako "bardzo wysoka LUB bardzo niska" - czyli okno, a nie kierunek - dlatego
+  // dla T1 celowo zostawiamy pełny zakres losowania (brak badRange).
   rozwarstwienia: {
     label: 'Rozwarstwienia – oddzielające się warstwy materiału',
     params: [
       {
-        // za niska temp. dyszy -> słabe zgrzanie warstw materiału
-        id: 'T1', weight: 20,
-        curve: [[100,10],[150,30],[180,55],[200,80],[220,100],[250,90],[280,60],[320,20]],
-        badRange: [100, 180] // domyślne 220°C to już optimum -> uczymy "trzeba zwiększyć"
+        // PDF: "Zredukować prędkość wtrysku"
+        id: 'Pw1', weight: 55,
+        curve: [[0,60],[20,100],[40,90],[80,60],[120,30],[160,10],[200,0]],
+        badRange: [100, 200] // domyślne 80 powyżej optimum 20 -> uczymy "obniż"
       },
       {
-        // za niska prędkość wtrysku -> słabe wymieszanie/zgrzanie strug materiału
-        id: 'Pw1', weight: 15,
-        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
-        badRange: [0, 50] // krzywa rośnie monotonicznie -> uczymy "trzeba zwiększyć"
-      }
-    ]
-  },
-
-  linie_laczenia: {
-    label: 'Linie łączenia – widoczne ślady zetknięcia strug materiału',
-    params: [
-      {
-        // za niska temp. dyszy -> strugi zastygają zanim się połączą
-        id: 'T1', weight: 20,
-        curve: [[100,10],[150,30],[180,55],[200,80],[220,100],[250,90],[280,60],[320,20]],
-        badRange: [100, 180] // domyślne 220°C to już optimum -> uczymy "trzeba zwiększyć"
-      },
-      {
-        // za niska prędkość wtrysku -> strugi zastygają przed połączeniem
-        id: 'Pw1', weight: 15,
-        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
-        badRange: [0, 50] // krzywa rośnie monotonicznie -> uczymy "trzeba zwiększyć"
-      }
-    ]
-  },
-
-  przebarwienia: {
-    label: 'Przebarwienia – zmiana koloru / degradacja termiczna materiału',
-    params: [
-      {
-        // za wysoka temp. dyszy -> przypalenie/degradacja koloru materiału
-        id: 'T1', weight: 25,
-        curve: [[150,80],[180,95],[210,100],[230,80],[260,50],[300,20],[350,5]],
-        badRange: [230, 350] // domyślne 220°C blisko optimum, wyżej już źle -> uczymy "trzeba obniżyć"
-      },
-      {
-        // za długi czas cyklu -> materiał zbyt długo przebywa w gorącym cylindrze
-        id: 'Tc', weight: 15,
-        curve: [[0,100],[20,95],[30,90],[45,70],[60,45],[90,20],[120,5]],
-        badRange: [45, 120] // domyślne 30s blisko optimum, dłużej już źle -> uczymy "trzeba skrócić"
-      },
-      {
-        // za wysoka temp. trawersy -> dodatkowe przegrzewanie materiału
-        id: 'TR', weight: 10,
-        curve: [[0,100],[40,95],[60,85],[80,60],[100,30],[130,10]],
-        badRange: [80, 130] // domyślne 60°C blisko optimum, wyżej już źle -> uczymy "trzeba obniżyć"
+        // PDF: "bardzo wysoka LUB bardzo niska temperatura masy" - okno, oba kierunki złe,
+        // celowo bez badRange (pełny zakres losowania - lekcja "trafić w okno")
+        id: 'T1', weight: 45,
+        curve: [[100,20],[150,50],[190,80],[220,100],[250,80],[290,50],[330,20],[350,10]]
       }
     ]
   }
 }
 
-export const TRAINER_NOTES_EXTRA = {
-  wypaczenia: [
-    'Sprawdź symetrię chłodzenia formy (temperatury Tr/Ts)',
-    'Sprawdź czy detal nie jest wyjmowany za wcześnie (przed pełnym wystudzeniem)',
-    'Sprawdź równomierność grubości ścianek detalu',
-    'Sprawdź czy czas i ciśnienie docisku są wystarczające'
-  ],
-  zapadniecia: [
-    'Sprawdź miejsca o większej grubości ścianki (żebra, boss-y)',
-    'Sprawdź czy ciśnienie i czas docisku są wystarczające',
-    'Sprawdź czy punkt przełączenia nie jest zbyt wczesny',
-    'Sprawdź drożność kanału wlewowego podczas fazy docisku'
-  ],
-  smugi: [
-    'Sprawdź czy materiał był suszony zgodnie z kartą technologiczną',
-    'Sprawdź temperatury stref cylindra pod kątem przegrzania',
-    'Sprawdź prędkość wtrysku w newralgicznych strefach',
-    'Sprawdź poziom przeciwciśnienia (odgazowanie/mieszanie materiału)'
-  ],
-  pecherze: [
-    'Sprawdź ciśnienie i czas fazy docisku',
-    'Sprawdź czy materiał nie jest zawilgocony',
-    'Sprawdź grubości ścianek w miejscu występowania pęcherzy',
-    'Sprawdź drożność kanału wlewowego'
-  ],
-  rozwarstwienia: [
-    'Sprawdź czystość i jednorodność materiału (brak zanieczyszczeń/mieszania partii)',
-    'Sprawdź temperatury stref cylindra',
-    'Sprawdź prędkość wtrysku',
-    'Sprawdź czy nie doszło do zmiany dostawcy/partii materiału'
-  ],
-  linie_laczenia: [
-    'Sprawdź lokalizację linii łączenia względem konstrukcji detalu',
-    'Sprawdź temperatury formy i materiału',
-    'Sprawdź prędkość wtrysku w miejscu łączenia strug',
-    'Rozważ dodanie odpowietrzenia w miejscu łączenia'
-  ],
-  przebarwienia: [
-    'Sprawdź temperatury stref cylindra pod kątem przegrzania',
-    'Sprawdź czas przebywania materiału w cylindrze (czas cyklu vs pojemność wtrysku)',
-    'Sprawdź czystość cylindra po zmianie koloru/materiału',
-    'Sprawdź datę ważności i warunki przechowywania materiału/barwnika'
-  ]
-}
-
-export const BUILTIN_DEFECTS_ALL = { ...DEFECTS, ...DEFECTS_EXTRA }
-
 export const TRAINER_NOTES = {
   niedolanie: [
-    'Sprawdź rodzaj zaworu zwrotnego',
-    'Sprawdź płynność materiału',
-    'Sprawdź sprawność zaworu zwrotnego – czy nie jest zepsuty',
-    'Sprawdź szczelność dyszy',
-    'Sprawdź czy nie jest rozszczelniony GK'
+    'Sprawdź czy ślimak dochodzi do przedniego położenia (poduszka min. 5 mm)',
+    'Sprawdź zawór zwrotny i/lub cylinder pod kątem szczelności',
+    'Sprawdź odpowietrzenie formy',
+    'Sprawdź czy nie osiągamy granicznego ciśnienia wtrysku',
+    'Sprawdź punkt przełączenia (czy nie jest zbyt wczesny)'
   ],
-  // Wersja robocza – podrzuć własne punkty, jeśli chcesz je zmienić.
   przypalenia: [
-    'Sprawdź drożność kanałów odpowietrzających w gnieździe formy',
-    'Sprawdź stan wentylacji (venting) formy',
-    'Sprawdź czy materiał nie jest zawilgocony lub zanieczyszczony',
-    'Sprawdź newralgiczne miejsca formy pod kątem nadmiernej prędkości wtrysku',
-    'Sprawdź szczelność zamknięcia formy'
+    'Sprawdź czy w obszarze przypaleń jest odpowietrzenie',
+    'Sprawdź czy błąd nie pojawił się nagle w trakcie produkcji (zabrudzone odpowietrzenia)',
+    'Sprawdź czy odpowietrzenie jest we właściwym miejscu',
+    'Sprawdź możliwość redukcji siły zwarcia (max. ok. 20% przepakowania)'
   ],
   wyplywy: [
-    'Sprawdź stan płaszczyzny podziału formy – zużycie, uszkodzenia',
-    'Sprawdź siłę zwarcia względem rzutu powierzchni detalu',
-    'Sprawdź czystość powierzchni podziału formy',
-    'Sprawdź czy nie doszło do rozwarcia/przeciążenia formy',
-    'Sprawdź kalibrację czujnika siły zwarcia'
+    'Sprawdź stan powierzchni uszczelniających (płaszczyznę podziału formy)',
+    'Sprawdź możliwość zwiększenia siły zwarcia',
+    'Sprawdź równomierność napełniania gniazda formującego',
+    'Sprawdź czy nie ma dużych deformacji/ugięcia formy pod ciśnieniem',
+    'Sprawdź czy przetrysk występuje w okolicy punktu wtrysku'
+  ],
+  zapadniecia: [
+    'Sprawdź długość i stabilność poduszki (min. 5 mm)',
+    'Sprawdź zawór zwrotny i/lub cylinder',
+    'Sprawdź czy zapady są w okolicy dolotu czy z dala od niego (różne działania naprawcze)',
+    'Sprawdź czas i ciśnienie docisku'
+  ],
+  pecherze: [
+    'Sprawdź długość i stabilność poduszki (min. 5 mm)',
+    'Sprawdź czy pęcherze są w obrębie wlewka/grubościennym obszarze czy z dala od niego',
+    'Sprawdź czas i ciśnienie docisku',
+    'Sprawdź wymiarowanie wlewka i przekrój detalu'
+  ],
+  rozwarstwienia: [
+    'Sprawdź czy błąd pojawił się po zmianie materiału lub barwnika',
+    'Sprawdź granulat pod kątem zabrudzeń lub obcego materiału',
+    'Sprawdź wilgotność materiału',
+    'Sprawdź homogeniczność stopu i wydajność plastyfikacji'
   ]
 }
-
-export const TRAINER_NOTES_ALL = { ...TRAINER_NOTES, ...TRAINER_NOTES_EXTRA }
 
 export function computeResult(defectsRegistry, wada, values) {
   const defectParams = defectsRegistry[wada].params
@@ -394,3 +306,7 @@ export function computeResult(defectsRegistry, wada, values) {
   const defectPct = Math.max(0, Math.min(100, Math.round(100 - overall)))
   return { overallQuality: overall, defectPct }
 }
+
+// Aliasy zachowane dla zgodności z App.jsx / DefectsPanel.jsx (import BUILTIN_DEFECTS_ALL / TRAINER_NOTES_ALL)
+export const BUILTIN_DEFECTS_ALL = DEFECTS
+export const TRAINER_NOTES_ALL = TRAINER_NOTES
