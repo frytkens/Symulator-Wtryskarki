@@ -251,6 +251,56 @@ export const DEFECTS = {
         curve: [[100,20],[150,50],[190,80],[220,100],[250,80],[290,50],[330,20],[350,10]]
       }
     ]
+  },
+
+  // Prezentacja: "Smugi/haczyki powietrza" (str. 17-19).
+  smugi_powietrza: {
+    label: 'Smugi/haczyki powietrza – zaciągnięte powietrze na powierzchni',
+    params: [
+      {
+        // PDF: "Zmniejszyć przeciwciśnienie? -> Zwiększyć przeciwciśnienie" / "Podwyższyć przeciwciśnienie"
+        id: 'Prz', weight: 35,
+        curve: [[0,10],[5,30],[10,55],[20,80],[30,100],[40,95]],
+        badRange: [0, 15] // domyślne 5 bar poniżej optimum 30 -> uczymy "zwiększ"
+      },
+      {
+        // PDF: "Zmniejszyć dekompresję" (za duża dekompresja = przyczyna zaciągania powietrza)
+        id: 'Deko', weight: 35,
+        curve: [[0,100],[5,95],[10,85],[20,60],[40,30],[70,10],[100,0]],
+        badRange: [15, 100] // domyślne 7mm to już optimum -> uczymy "obniż"
+      },
+      {
+        // PDF: "Dopasować prędkość wtrysku (-)"
+        id: 'Pw1', weight: 30,
+        curve: [[0,60],[20,90],[40,100],[80,70],[120,40],[160,15],[200,5]],
+        badRange: [100, 200] // domyślne 80 powyżej optimum 40 -> uczymy "obniż"
+      }
+    ]
+  },
+
+  // Prezentacja: "Linie łączenia (widoczne karby, zmiany koloru lub zmiany połysku)" (str. 104-105).
+  linie_laczenia: {
+    label: 'Linie łączenia – widoczne karby w miejscu spotkania strug materiału',
+    params: [
+      {
+        // PDF: "Podnieść temperaturę masy" (jedno z pierwszych działań)
+        id: 'T1', weight: 40,
+        curve: [[150,10],[180,30],[200,55],[220,80],[250,100],[280,95],[320,85],[350,75]],
+        badRange: [150, 210] // domyślne 220°C daje jakość ~80% -> uczymy "zwiększ"
+      },
+      {
+        // PDF: "Zwiększyć ciśnienie docisku"
+        id: 'Pd', weight: 35,
+        curve: [[0,10],[20,30],[40,55],[80,75],[120,90],[160,100],[220,100]],
+        badRange: [0, 30] // domyślne 40 bar daje jakość ~55% -> uczymy "zwiększ"
+      },
+      {
+        // PDF: "Zmienić prędkość wtrysku" - bez podanego kierunku (+/-) w materiale źródłowym,
+        // celowo bez badRange (nieznany kierunek - okno, do zweryfikowania z technologiem)
+        id: 'Pw1', weight: 25,
+        curve: [[0,40],[40,70],[80,100],[120,80],[160,50],[200,20]]
+      }
+    ]
   }
 }
 
@@ -292,6 +342,18 @@ export const TRAINER_NOTES = {
     'Sprawdź granulat pod kątem zabrudzeń lub obcego materiału',
     'Sprawdź wilgotność materiału',
     'Sprawdź homogeniczność stopu i wydajność plastyfikacji'
+  ],
+  smugi_powietrza: [
+    'Sprawdź czy to haczyki powietrza (ostre przejścia grubości, głębokość grawerowania)',
+    'Sprawdź smugi w okolicy wlewka (prędkość ślimaka podczas dekompresji, wielkość dekompresji)',
+    'Sprawdź widoczne pęcherzyki powietrza w wytryśniętej masie (przeciwciśnienie, podawanie granulatu)',
+    'Sprawdź odpowietrzenie formy i szczelność dyszy'
+  ],
+  linie_laczenia: [
+    'Sprawdź czy karb/wada połysku występuje w obszarze łączenia strug',
+    'Sprawdź czy w obszarze łączenia widać zmiany koloru (pigment, materiał)',
+    'Rozważ przeniesienie punktu wtrysku, aby łączenie znalazło się w obszarze niewidocznym',
+    'Sprawdź odpowietrzenie w miejscu łączenia strug'
   ]
 }
 
