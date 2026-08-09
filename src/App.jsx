@@ -345,7 +345,7 @@ export default function App() {
             <h1>Panel wpływu wad</h1>
             <p className="sub">
               Tryb swobodnej analizy – ustawiaj dowolne wartości parametrów i obserwuj, jak zmienia się
-              ryzyko każdej z 6 najczęstszych wad. Bez licznika czasu, bez losowania.
+              ryzyko każdej z 8 najczęstszych wad. Bez licznika czasu, bez losowania.
             </p>
           </div>
           <button className="btn" onClick={() => setView('sim')}>← wróć do symulatora</button>
