@@ -169,6 +169,193 @@ export const DEFECTS = {
   }
 }
 
+export const DEFECTS_EXTRA = {
+  wypaczenia: {
+    label: 'Wypaczenia – odkształcenie detalu po wyjęciu z formy',
+    params: [
+      {
+        // za krótki czas docisku -> nierównomierny skurcz -> wypaczenie
+        id: 'Td', weight: 20,
+        curve: [[0,20],[1,30],[2,50],[3,75],[5,100],[8,95],[15,90],[30,85]],
+        badRange: [0, 3] // domyślne 5s to już optimum -> uczymy "trzeba wydłużyć"
+      },
+      {
+        // za niskie ciśnienie docisku -> nierównomierny skurcz -> wypaczenie
+        id: 'Pd', weight: 15,
+        curve: [[0,20],[10,40],[20,60],[30,80],[40,100],[60,95],[100,85],[220,75]],
+        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "trzeba zwiększyć"
+      }
+    ]
+  },
+
+  zapadniecia: {
+    label: 'Zapadnięcia – lokalne wgłębienia na powierzchni detalu',
+    params: [
+      {
+        // za niskie ciśnienie docisku -> materiał się kurczy -> zapadnięcie
+        id: 'Pd', weight: 30,
+        curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
+        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "trzeba zwiększyć"
+      },
+      {
+        // za krótki czas docisku -> zbyt wcześnie ustaje podawanie materiału
+        id: 'Td', weight: 20,
+        curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
+        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "trzeba wydłużyć"
+      }
+    ]
+  },
+
+  smugi: {
+    label: 'Smugi srebrzyste – ślady wilgoci/degradacji na powierzchni',
+    params: [
+      {
+        // za wysoka temp. dyszy -> degradacja termiczna materiału -> smugi
+        id: 'T1', weight: 25,
+        curve: [[150,60],[180,90],[200,100],[220,80],[250,50],[280,25],[320,10],[350,5]],
+        badRange: [230, 350] // domyślne 220°C już powyżej optimum 200°C -> uczymy "trzeba obniżyć"
+      },
+      {
+        // za duża prędkość wtrysku -> ścinanie i przegrzewanie materiału -> smugi
+        id: 'Pw1', weight: 20,
+        curve: [[0,60],[20,90],[40,100],[80,70],[120,40],[160,15],[200,5]],
+        badRange: [100, 200] // domyślne 80 mm/s już powyżej optimum 40 -> uczymy "trzeba obniżyć"
+      },
+      {
+        // za niskie przeciwciśnienie -> słabe odgazowanie/mieszanie -> uwięziona wilgoć/powietrze
+        id: 'Prz', weight: 15,
+        curve: [[0,10],[5,30],[10,55],[20,80],[30,100],[40,95]],
+        badRange: [0, 15] // domyślne 5 bar poniżej optimum 30 -> uczymy "trzeba zwiększyć"
+      }
+    ]
+  },
+
+  pecherze: {
+    label: 'Pęcherze – puste przestrzenie wewnątrz detalu',
+    params: [
+      {
+        // za niskie ciśnienie docisku -> niedopełniony ubytek skurczowy -> pęcherz
+        id: 'Pd', weight: 30,
+        curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
+        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "trzeba zwiększyć"
+      },
+      {
+        // za krótki czas docisku -> materiał nie zdąży wypełnić ubytku
+        id: 'Td', weight: 25,
+        curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
+        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "trzeba wydłużyć"
+      }
+    ]
+  },
+
+  rozwarstwienia: {
+    label: 'Rozwarstwienia – oddzielające się warstwy materiału',
+    params: [
+      {
+        // za niska temp. dyszy -> słabe zgrzanie warstw materiału
+        id: 'T1', weight: 20,
+        curve: [[100,10],[150,30],[180,55],[200,80],[220,100],[250,90],[280,60],[320,20]],
+        badRange: [100, 180] // domyślne 220°C to już optimum -> uczymy "trzeba zwiększyć"
+      },
+      {
+        // za niska prędkość wtrysku -> słabe wymieszanie/zgrzanie strug materiału
+        id: 'Pw1', weight: 15,
+        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
+        badRange: [0, 50] // krzywa rośnie monotonicznie -> uczymy "trzeba zwiększyć"
+      }
+    ]
+  },
+
+  linie_laczenia: {
+    label: 'Linie łączenia – widoczne ślady zetknięcia strug materiału',
+    params: [
+      {
+        // za niska temp. dyszy -> strugi zastygają zanim się połączą
+        id: 'T1', weight: 20,
+        curve: [[100,10],[150,30],[180,55],[200,80],[220,100],[250,90],[280,60],[320,20]],
+        badRange: [100, 180] // domyślne 220°C to już optimum -> uczymy "trzeba zwiększyć"
+      },
+      {
+        // za niska prędkość wtrysku -> strugi zastygają przed połączeniem
+        id: 'Pw1', weight: 15,
+        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
+        badRange: [0, 50] // krzywa rośnie monotonicznie -> uczymy "trzeba zwiększyć"
+      }
+    ]
+  },
+
+  przebarwienia: {
+    label: 'Przebarwienia – zmiana koloru / degradacja termiczna materiału',
+    params: [
+      {
+        // za wysoka temp. dyszy -> przypalenie/degradacja koloru materiału
+        id: 'T1', weight: 25,
+        curve: [[150,80],[180,95],[210,100],[230,80],[260,50],[300,20],[350,5]],
+        badRange: [230, 350] // domyślne 220°C blisko optimum, wyżej już źle -> uczymy "trzeba obniżyć"
+      },
+      {
+        // za długi czas cyklu -> materiał zbyt długo przebywa w gorącym cylindrze
+        id: 'Tc', weight: 15,
+        curve: [[0,100],[20,95],[30,90],[45,70],[60,45],[90,20],[120,5]],
+        badRange: [45, 120] // domyślne 30s blisko optimum, dłużej już źle -> uczymy "trzeba skrócić"
+      },
+      {
+        // za wysoka temp. trawersy -> dodatkowe przegrzewanie materiału
+        id: 'TR', weight: 10,
+        curve: [[0,100],[40,95],[60,85],[80,60],[100,30],[130,10]],
+        badRange: [80, 130] // domyślne 60°C blisko optimum, wyżej już źle -> uczymy "trzeba obniżyć"
+      }
+    ]
+  }
+}
+
+export const TRAINER_NOTES_EXTRA = {
+  wypaczenia: [
+    'Sprawdź symetrię chłodzenia formy (temperatury Tr/Ts)',
+    'Sprawdź czy detal nie jest wyjmowany za wcześnie (przed pełnym wystudzeniem)',
+    'Sprawdź równomierność grubości ścianek detalu',
+    'Sprawdź czy czas i ciśnienie docisku są wystarczające'
+  ],
+  zapadniecia: [
+    'Sprawdź miejsca o większej grubości ścianki (żebra, boss-y)',
+    'Sprawdź czy ciśnienie i czas docisku są wystarczające',
+    'Sprawdź czy punkt przełączenia nie jest zbyt wczesny',
+    'Sprawdź drożność kanału wlewowego podczas fazy docisku'
+  ],
+  smugi: [
+    'Sprawdź czy materiał był suszony zgodnie z kartą technologiczną',
+    'Sprawdź temperatury stref cylindra pod kątem przegrzania',
+    'Sprawdź prędkość wtrysku w newralgicznych strefach',
+    'Sprawdź poziom przeciwciśnienia (odgazowanie/mieszanie materiału)'
+  ],
+  pecherze: [
+    'Sprawdź ciśnienie i czas fazy docisku',
+    'Sprawdź czy materiał nie jest zawilgocony',
+    'Sprawdź grubości ścianek w miejscu występowania pęcherzy',
+    'Sprawdź drożność kanału wlewowego'
+  ],
+  rozwarstwienia: [
+    'Sprawdź czystość i jednorodność materiału (brak zanieczyszczeń/mieszania partii)',
+    'Sprawdź temperatury stref cylindra',
+    'Sprawdź prędkość wtrysku',
+    'Sprawdź czy nie doszło do zmiany dostawcy/partii materiału'
+  ],
+  linie_laczenia: [
+    'Sprawdź lokalizację linii łączenia względem konstrukcji detalu',
+    'Sprawdź temperatury formy i materiału',
+    'Sprawdź prędkość wtrysku w miejscu łączenia strug',
+    'Rozważ dodanie odpowietrzenia w miejscu łączenia'
+  ],
+  przebarwienia: [
+    'Sprawdź temperatury stref cylindra pod kątem przegrzania',
+    'Sprawdź czas przebywania materiału w cylindrze (czas cyklu vs pojemność wtrysku)',
+    'Sprawdź czystość cylindra po zmianie koloru/materiału',
+    'Sprawdź datę ważności i warunki przechowywania materiału/barwnika'
+  ]
+}
+
+export const BUILTIN_DEFECTS_ALL = { ...DEFECTS, ...DEFECTS_EXTRA }
+
 export const TRAINER_NOTES = {
   niedolanie: [
     'Sprawdź rodzaj zaworu zwrotnego',
@@ -192,4 +379,18 @@ export const TRAINER_NOTES = {
     'Sprawdź czy nie doszło do rozwarcia/przeciążenia formy',
     'Sprawdź kalibrację czujnika siły zwarcia'
   ]
+}
+
+export const TRAINER_NOTES_ALL = { ...TRAINER_NOTES, ...TRAINER_NOTES_EXTRA }
+
+export function computeResult(defectsRegistry, wada, values) {
+  const defectParams = defectsRegistry[wada].params
+  const weightSum = defectParams.reduce((s, p) => s + p.weight, 0)
+  let overall = 0
+  defectParams.forEach(p => {
+    const q = curveVal(Number(values[p.id]), p.curve)
+    overall += q * (p.weight / weightSum)
+  })
+  const defectPct = Math.max(0, Math.min(100, Math.round(100 - overall)))
+  return { overallQuality: overall, defectPct }
 }
