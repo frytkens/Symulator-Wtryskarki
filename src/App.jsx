@@ -4,9 +4,10 @@ import DefectManager from './components/DefectManager.jsx'
 import { LABELS } from './data/labels.js'
 import {
   PARAMS, CLAMP_PARAMS, ALL_PARAMS,
-  DEFECTS as BUILTIN_DEFECTS, TRAINER_NOTES as BUILTIN_TRAINER_NOTES,
-  curveVal, SUCCESS_THRESHOLD
+  BUILTIN_DEFECTS_ALL as BUILTIN_DEFECTS, TRAINER_NOTES_ALL as BUILTIN_TRAINER_NOTES,
+  curveVal, SUCCESS_THRESHOLD, computeResult
 } from './data/params.js'
+import DefectsPanel from './components/DefectsPanel.jsx'
 
 const CYCLE_SECONDS = 5
 const STORAGE_KEY = 'wtryskarka_custom_wady'
@@ -59,18 +60,6 @@ function randomChallengeValues(defectsRegistry, wada) {
     }
   }
   return best
-}
-
-function computeResult(defectsRegistry, wada, values) {
-  const defectParams = defectsRegistry[wada].params
-  const weightSum = defectParams.reduce((s, p) => s + p.weight, 0)
-  let overall = 0
-  defectParams.forEach(p => {
-    const q = curveVal(Number(values[p.id]), p.curve)
-    overall += q * (p.weight / weightSum)
-  })
-  const defectPct = Math.max(0, Math.min(100, Math.round(100 - overall)))
-  return { overallQuality: round(overall), defectPct }
 }
 
 function computeProcessSummary(values) {
@@ -348,6 +337,42 @@ export default function App() {
     )
   }
 
+  if (view === 'panel') {
+    return (
+      <div className="page">
+        <div className="page-header-row">
+          <div>
+            <h1>Panel wpływu wad</h1>
+            <p className="sub">
+              Tryb swobodnej analizy – ustawiaj dowolne wartości parametrów i obserwuj, jak zmienia się
+              ryzyko każdej z 10 najczęstszych wad. Bez licznika czasu, bez losowania.
+            </p>
+          </div>
+          <button className="btn" onClick={() => setView('sim')}>← wróć do symulatora</button>
+          <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
+        </div>
+
+        <div className="machine-layout">
+          <div className="diagram-wrap diagram-wrap--clamp">
+            <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
+            {CLAMP_PARAMS.map(p => (
+              <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />
+            ))}
+          </div>
+
+          <div className="diagram-wrap diagram-wrap--injection">
+            <img src="/schemat.png" alt="Schemat wtryskarki" />
+            {PARAMS.map(p => (
+              <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />
+            ))}
+          </div>
+        </div>
+
+        <DefectsPanel defects={defects} values={values} />
+      </div>
+    )
+  }
+
   return (
     <div className="page">
       <div className="page-header-row">
@@ -359,6 +384,7 @@ export default function App() {
             Niebieskie obramowanie = parametr ma wpływ na wybraną wadę.
           </p>
         </div>
+        <button className="btn" onClick={() => setView('panel')}>🧪 Panel wpływu wad</button>
         <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
       </div>
 
