@@ -525,6 +525,33 @@ h1 {
   margin: 6px 0 12px;
 }
 
+.defects-panel {
+  margin-top: 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+}
+.defects-panel h3 { margin: 0 0 4px; }
+.defects-panel .sub { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); }
+.defects-panel-list { display: flex; flex-direction: column; gap: 10px; }
+.defect-row { display: grid; grid-template-columns: minmax(140px, 260px) 1fr 48px; align-items: center; gap: 12px; }
+.defect-row-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.defect-row-bar-track { height: 12px; border-radius: 6px; background: #eef0f4; overflow: hidden; }
+.defect-row-bar-fill { height: 100%; border-radius: 6px; transition: width 0.15s ease; }
+.defect-row-bar-fill.ok { background: #2fa84f; }
+.defect-row-bar-fill.warn { background: #e0a72e; }
+.defect-row-bar-fill.bad { background: #d94545; }
+.defect-row-pct { font-size: 12.5px; font-weight: 600; text-align: right; }
+.defect-row-pct.ok { color: #2fa84f; }
+.defect-row-pct.warn { color: #b3820f; }
+.defect-row-pct.bad { color: #d94545; }
+
+@media (max-width: 600px) {
+  .defect-row { grid-template-columns: 1fr; gap: 4px; }
+  .defect-row-pct { text-align: left; }
+}
+
 .param-group { margin-top: 14px; }
 .param-group-title {
   font-size: 11.5px;
