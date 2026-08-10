@@ -8,6 +8,7 @@ import {
   curveVal, SUCCESS_THRESHOLD, computeResult
 } from './data/params.js'
 import DefectsPanel from './components/DefectsPanel.jsx'
+import Landing from './components/Landing.jsx'
 
 const CYCLE_SECONDS = 5
 const STORAGE_KEY = 'wtryskarka_custom_wady'
@@ -124,7 +125,7 @@ function saveCustomWady(customDefects, customTrainerNotes) {
 }
 
 export default function App() {
-  const [view, setView] = useState('sim') // 'sim' | 'admin'
+  const [view, setView] = useState('landing') // 'landing' | 'sim' | 'panel' | 'admin'
   const [customDefects, setCustomDefects] = useState(() => loadCustomWady().defects)
   const [customTrainerNotes, setCustomTrainerNotes] = useState(() => loadCustomWady().trainerNotes)
   const defects = { ...BUILTIN_DEFECTS, ...customDefects }
@@ -178,6 +179,11 @@ export default function App() {
   function handleUseInSimulator(id) {
     handleWadaChange(id)
     setView('sim')
+  }
+
+  function handleOpenPanel(id) {
+    if (id) handleWadaChange(id)
+    setView('panel')
   }
 
   function handleImportDefects(importedDefects, importedTrainerNotes) {
@@ -322,6 +328,16 @@ export default function App() {
 
   const seconds = (elapsedMs / 1000).toFixed(1)
 
+  if (view === 'landing') {
+    return (
+      <Landing
+        defects={defects}
+        onStartTraining={handleUseInSimulator}
+        onOpenPanel={handleOpenPanel}
+      />
+    )
+  }
+
   if (view === 'admin') {
     return (
       <DefectManager
@@ -350,6 +366,7 @@ export default function App() {
           </div>
           <button className="btn" onClick={() => setView('sim')}>← wróć do symulatora</button>
           <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
+          <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
         </div>
 
         <div className="machine-layout">
@@ -386,6 +403,7 @@ export default function App() {
         </div>
         <button className="btn" onClick={() => setView('panel')}>🧪 Panel wpływu wad</button>
         <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
+        <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
       </div>
 
       <select className="wada-select" value={wada} onChange={e => handleWadaChange(e.target.value)}>
