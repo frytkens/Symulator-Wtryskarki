@@ -283,21 +283,50 @@ h1 {
 }
 .diagram-wrap img { display: block; width: 100%; height: auto; }
 
+.machine-layout-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 0 1 35%;
+  max-width: 35%;
+}
+
 .diagram-wrap--injection {
   flex: 0 1 65%;
   max-width: 65%;
 }
 
 .diagram-wrap--clamp {
-  flex: 0 1 35%;
-  max-width: 35%;
   aspect-ratio: 2048 / 1000;
+}
+
+.defect-photo-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.defect-photo-card img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  display: block;
+}
+.defect-photo-card span {
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
 }
 
 @media (max-width: 900px) {
   .machine-layout { flex-direction: column; }
   .diagram-wrap--injection,
-  .diagram-wrap--clamp { max-width: 100%; flex-basis: 100%; }
+  .machine-layout-col { max-width: 100%; flex-basis: 100%; }
 }
 
 .field {
