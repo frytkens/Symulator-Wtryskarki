@@ -45,8 +45,12 @@ export default function Landing({ defects, onStartTraining, onOpenPanel }) {
         ))}
       </div>
 
-      <button className="btn" style={{ marginTop: 20 }} onClick={() => onOpenPanel(null)}>
-        🧪 Otwórz panel wpływu wad (wszystkie naraz)
+      <button className="landing-panel-cta" onClick={() => onOpenPanel(null)}>
+        <span className="landing-panel-cta-text">
+          <strong>🧪 Panel wpływu wad</strong>
+          <span>Zobacz wszystkie 8 wad naraz i obserwuj, jak zmiana parametrów wpływa na każdą z nich.</span>
+        </span>
+        <span className="landing-panel-cta-arrow">→</span>
       </button>
     </div>
   )
