@@ -406,12 +406,6 @@ export default function App() {
         <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
       </div>
 
-      <select className="wada-select" value={wada} onChange={e => handleWadaChange(e.target.value)}>
-        {Object.entries(defects).map(([id, d]) => (
-          <option key={id} value={id}>{d.label}</option>
-        ))}
-      </select>
-
       <div className="timer-bar">
         <div className="timer-display">
           <span className="timer-label">czas</span>
@@ -440,18 +434,25 @@ export default function App() {
       </div>
 
       <div className="machine-layout">
-        <div className={`diagram-wrap diagram-wrap--clamp ${cycling ? 'is-cycling' : ''}`}>
-          <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
-          {CLAMP_PARAMS.map(p => (
-            <ParamField
-              key={p.id}
-              param={p}
-              value={values[p.id]}
-              onChange={handleChange}
-              disabled={cycling}
-              active={activeIds.has(p.id)}
-            />
-          ))}
+        <div className="machine-layout-col">
+          <div className={`diagram-wrap diagram-wrap--clamp ${cycling ? 'is-cycling' : ''}`}>
+            <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
+            {CLAMP_PARAMS.map(p => (
+              <ParamField
+                key={p.id}
+                param={p}
+                value={values[p.id]}
+                onChange={handleChange}
+                disabled={cycling}
+                active={activeIds.has(p.id)}
+              />
+            ))}
+          </div>
+
+          <div className="defect-photo-card">
+            <img src={`/defects/${wada}.jpg`} alt={defects[wada]?.label || wada} />
+            <span>{defects[wada]?.label}</span>
+          </div>
         </div>
 
         <div className={`diagram-wrap diagram-wrap--injection ${cycling ? 'is-cycling' : ''}`}>
