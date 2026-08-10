@@ -122,6 +122,20 @@ export const DEFECTS = {
         id: 'T1', weight: 25,
         curve: [[150,20],[200,50],[220,65],[250,85],[280,100],[320,95],[350,90]],
         badRange: [150, 220] // domyślne 220°C daje jakość ~65% -> uczymy "zwiększ temperaturę"
+      },
+      {
+        // PDF: "Podnieść temperaturę formy" - dodane wg ręcznej korekty
+        id: 'Tr', weight: 25,
+        curve: [[10,20],[20,30],[30,45],[45,65],[60,80],[80,100],[100,90],[130,70]],
+        badRange: [30, 60] // domyślne 20°C poniżej badRange -> uczymy "zwiększ temperaturę formy"
+      },
+      {
+        // Wg Twojej korekty: wyższe Pp = mniej materiału podanego w fazie szybkiego wtrysku
+        // przed przełączeniem na docisk. Dla niedolania to źle (mniej materiału = gorsze wypełnienie),
+        // więc niższe Pp pomaga - dodane wg ręcznej korekty
+        id: 'Pp', weight: 30,
+        curve: [[0,60],[2,90],[4,100],[8,70],[12,45],[16,25],[20,15],[25,5]],
+        badRange: [5, 20] // uczymy "obniż" (niższe Pp = pełniejsze wypełnienie)
       }
     ]
   },
@@ -169,16 +183,24 @@ export const DEFECTS = {
         badRange: [50, 120] // domyślne 40 bar powyżej optimum 30 -> uczymy "obniż"
       },
       {
-        // PDF: "Zoptymalizować punkt przełączenia" / "Przełączyć wcześniej na docisk"
+        // POPRAWKA wg ręcznej korekty: wyższe Pp = mniej materiału podanego w fazie szybkiego
+        // wtrysku przed przełączeniem na docisk = mniej materiału pod ciśnieniem = mniej wypływu.
+        // Kierunek odwrócony względem poprzedniej wersji (było "obniż").
         id: 'Pp', weight: 20,
-        curve: [[0,20],[5,35],[8,55],[10,75],[12,100],[14,80],[16,50],[20,20],[25,5]],
-        badRange: [16, 25] // domyślne 10mm blisko optimum 12mm, wyżej już źle -> uczymy "obniż"
+        curve: [[0,10],[5,25],[10,45],[16,60],[20,75],[25,85],[30,100],[35,90],[40,60]],
+        badRange: [16, 25] // domyślne 10mm poniżej optimum 30mm -> uczymy "zwiększ"
       },
       {
         // PDF: "Zredukować temperaturę stopu"
         id: 'T1', weight: 10,
         curve: [[180,20],[190,40],[200,65],[210,100],[220,75],[230,50],[240,25],[250,10]],
         badRange: [220, 250] // domyślne 220°C powyżej optimum 210°C -> uczymy "obniż"
+      },
+      {
+        // PDF: "zredukować temperaturę formy" - dodane wg ręcznej korekty
+        id: 'Tr', weight: 5,
+        curve: [[10,60],[15,85],[20,100],[30,80],[45,55],[60,35],[80,15],[100,5]],
+        badRange: [30, 60] // domyślne 20°C to już optimum -> uczymy "obniż"
       }
     ]
   },
@@ -191,19 +213,13 @@ export const DEFECTS = {
         // PDF: "Podnieść ciśnienie docisku" / "Podwyższyć docisk"
         id: 'Pd', weight: 40,
         curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
-        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "zwiększ"
+        badRange: [0, 60] // poszerzone wg ręcznej korekty -> uczymy "zwiększ"
       },
       {
         // PDF: "Zoptymalizować (wydłużyć) czas docisku"
         id: 'Td', weight: 35,
         curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
-        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "wydłuż"
-      },
-      {
-        // PDF: "zmienić (+) prędkość wtrysku" (zapady daleko od dolotu)
-        id: 'Pw1', weight: 25,
-        curve: [[0,10],[40,20],[80,40],[120,60],[160,85],[200,100]],
-        badRange: [0, 60] // krzywa rośnie monotonicznie -> uczymy "zwiększ"
+        badRange: [0, 7] // poszerzone wg ręcznej korekty -> uczymy "wydłuż"
       }
     ]
   },
@@ -218,13 +234,13 @@ export const DEFECTS = {
         // PDF: "Podwyższyć ciśnienie docisku"
         id: 'Pd', weight: 55,
         curve: [[0,10],[10,30],[20,55],[30,80],[40,100],[80,95],[150,90],[220,85]],
-        badRange: [0, 20] // domyślne 40 bar to już optimum -> uczymy "zwiększ"
+        badRange: [0, 60] // poszerzone wg ręcznej korekty -> uczymy "zwiększ"
       },
       {
         // PDF: "Zoptymalizować czas docisku"
         id: 'Td', weight: 45,
         curve: [[0,15],[1,30],[2,55],[3,80],[5,100],[10,95],[20,90]],
-        badRange: [0, 2] // domyślne 5s to już optimum -> uczymy "wydłuż"
+        badRange: [0, 7] // poszerzone wg ręcznej korekty -> uczymy "wydłuż"
       }
     ]
   },
@@ -242,7 +258,7 @@ export const DEFECTS = {
         // PDF: "Zredukować prędkość wtrysku"
         id: 'Pw1', weight: 55,
         curve: [[0,60],[20,100],[40,90],[80,60],[120,30],[160,10],[200,0]],
-        badRange: [100, 200] // domyślne 80 powyżej optimum 20 -> uczymy "obniż"
+        badRange: [20, 200] // poszerzone wg ręcznej korekty -> uczymy "obniż"
       },
       {
         // PDF: "bardzo wysoka LUB bardzo niska temperatura masy" - okno, oba kierunki złe,
@@ -261,19 +277,19 @@ export const DEFECTS = {
         // PDF: "Zmniejszyć przeciwciśnienie? -> Zwiększyć przeciwciśnienie" / "Podwyższyć przeciwciśnienie"
         id: 'Prz', weight: 35,
         curve: [[0,10],[5,30],[10,55],[20,80],[30,100],[40,95]],
-        badRange: [0, 15] // domyślne 5 bar poniżej optimum 30 -> uczymy "zwiększ"
+        badRange: [0, 2] // zawężone wg ręcznej korekty -> uczymy "zwiększ"
       },
       {
         // PDF: "Zmniejszyć dekompresję" (za duża dekompresja = przyczyna zaciągania powietrza)
         id: 'Deko', weight: 35,
         curve: [[0,100],[5,95],[10,85],[20,60],[40,30],[70,10],[100,0]],
-        badRange: [15, 100] // domyślne 7mm to już optimum -> uczymy "obniż"
+        badRange: [3, 100] // poszerzone wg ręcznej korekty -> uczymy "obniż"
       },
       {
         // PDF: "Dopasować prędkość wtrysku (-)"
         id: 'Pw1', weight: 30,
         curve: [[0,60],[20,90],[40,100],[80,70],[120,40],[160,15],[200,5]],
-        badRange: [100, 200] // domyślne 80 powyżej optimum 40 -> uczymy "obniż"
+        badRange: [50, 200] // poszerzone wg ręcznej korekty -> uczymy "obniż"
       }
     ]
   },
@@ -286,7 +302,7 @@ export const DEFECTS = {
         // PDF: "Podnieść temperaturę masy" (jedno z pierwszych działań)
         id: 'T1', weight: 40,
         curve: [[150,10],[180,30],[200,55],[220,80],[250,100],[280,95],[320,85],[350,75]],
-        badRange: [150, 210] // domyślne 220°C daje jakość ~80% -> uczymy "zwiększ"
+        badRange: [150, 260] // poszerzone wg ręcznej korekty -> uczymy "zwiększ"
       },
       {
         // PDF: "Zwiększyć ciśnienie docisku"
@@ -310,7 +326,8 @@ export const TRAINER_NOTES = {
     'Sprawdź zawór zwrotny i/lub cylinder pod kątem szczelności',
     'Sprawdź odpowietrzenie formy',
     'Sprawdź czy nie osiągamy granicznego ciśnienia wtrysku',
-    'Sprawdź punkt przełączenia (czy nie jest zbyt wczesny)'
+    'Sprawdź punkt przełączenia (czy nie jest zbyt wczesny)',
+    'Sprawdź temperaturę formy'
   ],
   przypalenia: [
     'Sprawdź czy w obszarze przypaleń jest odpowietrzenie',
@@ -323,7 +340,8 @@ export const TRAINER_NOTES = {
     'Sprawdź możliwość zwiększenia siły zwarcia',
     'Sprawdź równomierność napełniania gniazda formującego',
     'Sprawdź czy nie ma dużych deformacji/ugięcia formy pod ciśnieniem',
-    'Sprawdź czy przetrysk występuje w okolicy punktu wtrysku'
+    'Sprawdź czy przetrysk występuje w okolicy punktu wtrysku',
+    'Sprawdź temperaturę formy'
   ],
   zapadniecia: [
     'Sprawdź długość i stabilność poduszki (min. 5 mm)',
