@@ -3,10 +3,11 @@ import ParamField from './components/ParamField.jsx'
 import DefectManager from './components/DefectManager.jsx'
 import { LABELS } from './data/labels.js'
 import {
-  PARAMS, CLAMP_PARAMS, ALL_PARAMS,
+  PARAMS, CLAMP_PARAMS, ALL_PARAMS, MACHINE,
   BUILTIN_DEFECTS_ALL as BUILTIN_DEFECTS, TRAINER_NOTES_ALL as BUILTIN_TRAINER_NOTES,
-  curveVal, SUCCESS_THRESHOLD, computeResult
+  curveVal, SUCCESS_THRESHOLD, computeResult, evaluateCycle
 } from './data/params.js'
+import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
 import DefectsPanel from './components/DefectsPanel.jsx'
 import Landing from './components/Landing.jsx'
 
@@ -142,13 +143,21 @@ export default function App() {
   const [countdown, setCountdown] = useState(null) // null = brak trwającego cyklu
   const [cycleLog, setCycleLog] = useState([])
   const [wada, setWada] = useState('niedolanie')
+  // wariant ćwiczenia dla bieżącej wady (np. 'niedolanie' / 'niedolanie_B' / 'niedolanie_C').
+  // null = dla tej wady nie ma jeszcze zdefiniowanego ćwiczenia -> spadamy na stare losowanie.
+  const [exerciseKey, setExerciseKey] = useState(() => exercisesForWada('niedolanie')[0]?.key ?? null)
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
   const lastLoggedValues = useRef(defaultValues())
   const lastDefectPct = useRef(computeResult(defects, wada, defaultValues()).defectPct)
   const countdownRef = useRef(null)
 
   const cycling = countdown !== null
-  const activeIds = new Set(defects[wada].params.map(p => p.id))
+  const activeExercise = exerciseKey ? EXERCISES[exerciseKey] : null
+  const exerciseMachine = activeExercise?.machine || MACHINE
+  const variants = exercisesForWada(wada)
+  const activeIds = new Set(
+    (activeExercise?.focus || defects[wada].params.map(p => p.id))
+  )
 
   const [processResult, setProcessResult] = useState(null) // null dopóki żaden cykl się nie zakończył
 
@@ -217,10 +226,14 @@ export default function App() {
   }, [running])
 
   const handleStart = useCallback(() => {
-    const fresh = randomChallengeValues(defects, wada)
+    // Ćwiczenie zdefiniowane -> zawsze te same, przemyślane nastawy startowe.
+    // Brak ćwiczenia dla tej wady -> stare losowanie jako fallback.
+    const fresh = activeExercise
+      ? exerciseValues(exerciseKey, defaultValues)
+      : randomChallengeValues(defects, wada)
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
@@ -228,7 +241,7 @@ export default function App() {
     setSolved(false)
     startRef.current = Date.now()
     setRunning(true)
-  }, [wada, customDefects])
+  }, [wada, customDefects, exerciseKey, activeExercise, exerciseMachine])
 
   const handleReset = useCallback(() => {
     setRunning(false)
@@ -237,29 +250,52 @@ export default function App() {
     const fresh = defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
     clearInterval(countdownRef.current)
     setCountdown(null)
-  }, [wada, customDefects])
+  }, [wada, customDefects, exerciseMachine])
 
   const handleWadaChange = useCallback((newWada) => {
     setWada(newWada)
     setRunning(false)
     setSolved(false)
     setElapsedMs(0)
-    const fresh = defaultValues()
+    // przy zmianie wady wybieramy jej pierwszy zdefiniowany wariant ćwiczenia (jeśli istnieje)
+    const newVariants = exercisesForWada(newWada)
+    const newExerciseKey = newVariants[0]?.key ?? null
+    const newMachine = newExerciseKey ? EXERCISES[newExerciseKey].machine : MACHINE
+    setExerciseKey(newExerciseKey)
+    const fresh = newExerciseKey ? exerciseValues(newExerciseKey, defaultValues) : defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, newWada, fresh).defectPct
+    lastDefectPct.current = computeResult(defects, newWada, fresh, newMachine).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
     clearInterval(countdownRef.current)
     setCountdown(null)
   }, [customDefects])
+
+  // przełączenie wariantu ćwiczenia bez zmiany wady (np. niedolanie A -> niedolanie B)
+  const handleExerciseChange = useCallback((newExerciseKey) => {
+    setExerciseKey(newExerciseKey)
+    setRunning(false)
+    setSolved(false)
+    setElapsedMs(0)
+    const newMachine = EXERCISES[newExerciseKey]?.machine || MACHINE
+    const fresh = exerciseValues(newExerciseKey, defaultValues)
+    setValues(fresh)
+    lastLoggedValues.current = fresh
+    lastDefectPct.current = computeResult(defects, wada, fresh, newMachine).defectPct
+    setCycleLog([])
+    setResultModal(null)
+    setProcessResult(null)
+    clearInterval(countdownRef.current)
+    setCountdown(null)
+  }, [customDefects, wada])
 
   const handleChange = useCallback((id, raw) => {
     setValues(prev => ({ ...prev, [id]: raw === '' ? '' : Number(raw) }))
@@ -274,8 +310,10 @@ export default function App() {
           clearInterval(countdownRef.current)
           // cykl zakończony – policz wynik i zapisz do logu
           setValues(currentValues => {
-            const { defectPct } = computeResult(defects, wada, currentValues)
-            const isSolved = defectPct <= SUCCESS_THRESHOLD
+            const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine)
+            const isSolved = activeExercise
+              ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass).passed
+              : defectPct <= SUCCESS_THRESHOLD
 
             let trend = 'first'
             if (lastDefectPct.current !== null) {
@@ -315,7 +353,7 @@ export default function App() {
         return prev - 1
       })
     }, 1000)
-  }, [cycling, running, solved, wada, customDefects])
+  }, [cycling, running, solved, wada, customDefects, activeExercise, exerciseMachine])
 
   useEffect(() => {
     if (countdown === 0) {
@@ -327,6 +365,9 @@ export default function App() {
   useEffect(() => () => clearInterval(countdownRef.current), [])
 
   const seconds = (elapsedMs / 1000).toFixed(1)
+  const visibleHints = activeExercise?.hints
+    ? activeExercise.hints.filter(h => cycleLog.length >= h.after && (!h.when || h.when(values, exerciseMachine)))
+    : []
 
   if (view === 'landing') {
     return (
@@ -396,8 +437,10 @@ export default function App() {
         <div>
           <h1>Symulator wtryskarki – panel parametrów</h1>
           <p className="sub">
-            Kliknij start, żeby wylosować nieprawidłowe ustawienia. Ustaw parametry, uruchom cykl przyciskiem
-            „Start cyklu” i sprawdź wynik – tak jak na prawdziwej maszynie.
+            {activeExercise
+              ? 'Kliknij start, żeby wczytać nastawy tego ćwiczenia. Ustaw parametry, uruchom cykl przyciskiem'
+              : 'Kliknij start, żeby wylosować nieprawidłowe ustawienia. Ustaw parametry, uruchom cykl przyciskiem'}
+            {' '}„Start cyklu” i sprawdź wynik – tak jak na prawdziwej maszynie.
             Niebieskie obramowanie = parametr ma wpływ na wybraną wadę.
           </p>
         </div>
@@ -405,6 +448,27 @@ export default function App() {
         <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
         <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
       </div>
+
+      {variants.length > 0 && (
+        <div className="exercise-picker">
+          {variants.map(v => (
+            <button
+              key={v.key}
+              className={`btn exercise-chip ${v.key === exerciseKey ? 'active' : ''}`}
+              onClick={() => handleExerciseChange(v.key)}
+              disabled={running || cycling}
+            >
+              {v.label}
+            </button>
+          ))}
+          {activeExercise?.keyNumber && (
+            <span className="exercise-keynumber">
+              {activeExercise.keyNumber.label}: policz to sam, zanim zaczniesz
+              ({activeExercise.keyNumber.unit})
+            </span>
+          )}
+        </div>
+      )}
 
       <div className="timer-bar">
         <div className="timer-display">
@@ -523,6 +587,15 @@ export default function App() {
           <p className="process-summary-empty">Uruchom „Start cyklu”, żeby zobaczyć wynikowe parametry procesu.</p>
         )}
       </div>
+
+      {visibleHints.length > 0 && (
+        <div className="exercise-hints">
+          <h3>Podpowiedzi</h3>
+          <ul>
+            {visibleHints.map((h, i) => <li key={i}>{h.text}</li>)}
+          </ul>
+        </div>
+      )}
 
       <div className="cycle-log">
         <h3>Log cykli</h3>
