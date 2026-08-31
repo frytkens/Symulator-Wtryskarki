@@ -5,7 +5,7 @@ import { LABELS } from './data/labels.js'
 import {
   PARAMS, CLAMP_PARAMS, ALL_PARAMS, MACHINE,
   BUILTIN_DEFECTS_ALL as BUILTIN_DEFECTS, TRAINER_NOTES_ALL as BUILTIN_TRAINER_NOTES,
-  curveVal, SUCCESS_THRESHOLD, computeResult, evaluateCycle
+  curveVal, SUCCESS_THRESHOLD, computeResult, evaluateCycle, cushion
 } from './data/params.js'
 import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
 import DefectsPanel from './components/DefectsPanel.jsx'
@@ -64,7 +64,7 @@ function randomChallengeValues(defectsRegistry, wada) {
   return best
 }
 
-function computeProcessSummary(values) {
+function computeProcessSummary(values, machine) {
   const speeds = ['Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5'].map(id => Number(values[id]) || 0)
   const vAvg = speeds.reduce((a, b) => a + b, 0) / speeds.length
 
@@ -90,10 +90,16 @@ function computeProcessSummary(values) {
   const wydajnoscSzt = czasCyklu > 0 ? Math.round(3600 / czasCyklu) : 0
   const tcSetting = Number(values.Tc) || 0
   const tcDelta = round(czasCyklu - tcSetting, 1)
+
+  // Poduszka (rezerwa materiału) – TA SAMA funkcja, która liczy ją silnik oceny,
+  // żeby liczba na ekranie zawsze zgadzała się z tym, co decyduje o zaliczeniu.
+  const cush = cushion(values, machine)
+
   return {
     vAvg, droga, czasWtrysku, czasDocisku,
     czasDozowania, czasChlodzenia, czasChlodzenieDozowanie,
-    czasCyklu, wydajnoscSzt, tcSetting, tcDelta
+    czasCyklu, wydajnoscSzt, tcSetting, tcDelta,
+    cushionRaw: cush.raw, cushionAvailable: cush.available, cushionNeed: cush.need
   }
 }
 
@@ -334,7 +340,7 @@ export default function App() {
               }))
             lastLoggedValues.current = currentValues
 
-            setProcessResult(computeProcessSummary(currentValues))
+            setProcessResult(computeProcessSummary(currentValues, exerciseMachine))
 
             setCycleLog(log => [
               { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend },
@@ -548,6 +554,13 @@ export default function App() {
                 <span className="ps-value">{round(processResult.droga, 1)} mm</span>
               </div>
               <div className="process-stat">
+                <span className="ps-label">Poduszka (rezerwa materiału)</span>
+                <span className="ps-value">
+                  {round(processResult.cushionRaw, 1)} mm
+                  <small> ({round(processResult.cushionAvailable, 1)} dostępne − {round(processResult.cushionNeed, 1)} potrzebne)</small>
+                </span>
+              </div>
+              <div className="process-stat">
                 <span className="ps-label">Czas wtrysku</span>
                 <span className="ps-value">{round(processResult.czasWtrysku, 2)} s</span>
               </div>
@@ -580,6 +593,11 @@ export default function App() {
             {processResult.tcDelta > 0 && (
               <div className="tc-warning">
                 ⚠ Obliczony czas cyklu jest o {processResult.tcDelta}s dłuższy niż nastawa Tc ({processResult.tcSetting}s) – maszyna nie zdąży w zadanym czasie.
+              </div>
+            )}
+            {processResult.cushionRaw < 5 && (
+              <div className="tc-warning">
+                ⚠ Poduszka poniżej 5 mm ({round(processResult.cushionRaw, 1)} mm) – docisk nie ma na czym działać, cykl nie zostanie zaliczony niezależnie od reszty nastaw.
               </div>
             )}
           </>
