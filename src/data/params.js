@@ -1,11 +1,176 @@
 // =============================================================
-export const OTHERS_THRESHOLD  = 40   // % maks. ryzyka wad pobocznych
-export const CUSHION_MIN       = 5    // mm
-export const CUSHION_PENALTY   = 30   // pkt ryzyka przy poduszce < 5 mm
-export const WARN_THRESHOLD    = 35   // próg żółty w DefectsPanel
+// 1. PARAMETRY – pozycje na schematach (x/y w %), zakresy suwaków
+// =============================================================
+export const PARAMS = [
+  { id: 'T1',  label: 'T1 – dysza',              x: 8.9,  y: 12.0, min: 0,   max: 350,  step: 5,    unit: '°C',  def: 220, active: true, weight: 0.15 },
+  { id: 'T2',  label: 'T2',                       x: 19.1, y: 8.0,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 230 },
+  { id: 'T3',  label: 'T3',                       x: 31.1, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 235 },
+  { id: 'T4',  label: 'T4',                       x: 43.1, y: 8.0,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 240 },
+  { id: 'T5',  label: 'T5',                       x: 55.0, y: 9.5,  min: 0,   max: 350,  step: 5,    unit: '°C',  def: 245 },
+  { id: 'TR',  label: 'TR – trawersa',            x: 71.4, y: 8.5,  min: 0,   max: 130,  step: 2,    unit: '°C',  def: 60  },
+
+  { id: 'Td',  label: 'Td – czas docisku',        x: 8.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
+  { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 15.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
+  { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 24.8, y: 70.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
+
+  { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw3', label: 'Pw3',                       x: 47.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw2', label: 'Pw2',                       x: 54.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
+  { id: 'Pw1', label: 'Pw1',                       x: 61.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
+  { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 70.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
+
+  { id: 'Deko', label: 'Deko – dekompresja',      x: 92.5, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
+  { id: 'Prz',  label: 'Prz – przeciwciśn.',      x: 82.5, y: 18.0, min: 0,   max: 40,   step: 1,    unit: 'bar', def: 5  },
+  { id: 'Ob',   label: 'Ob – obroty',             x: 92.4, y: 18.0, min: 0,   max: 1.2,  step: 0.05, unit: 'm/s', def: 0.6 },
+  { id: 'doz',  label: 'doz – skok dozowania',    x: 85.4, y: 85.0, min: 0,   max: 150,  step: 2,    unit: 'mm',  def: 60  }
+]
+
+export const CLAMP_PARAMS = [
+  { id: 'Tr', label: 'Tr – temp. strony ruchomej', x: 44.8, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
+  { id: 'Ts', label: 'Ts – temp. strony stałej',   x: 65.5, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
+  { id: 'Tc', label: 'Tc – czas cyklu',            x: 44.8, y: 90.0, min: 0,  max: 120, step: 1, unit: 's',  def: 30 },
+  { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 200, step: 5, unit: 't',  def: 180 }
+]
+
+// Pełna lista parametrów obu diagramów, z etykietą grupy do widoku administracyjnego.
+export const ALL_PARAMS = [
+  ...PARAMS.map(p => ({ ...p, group: 'Wtryskarka' })),
+  ...CLAMP_PARAMS.map(p => ({ ...p, group: 'Zamykanie' }))
+]
+
+// Zamienia nazwę wady na bezpieczny identyfikator (bez polskich znaków, spacji itp.)
+export function slugify(text) {
+  const map = { ą:'a', ć:'c', ę:'e', ł:'l', ń:'n', ó:'o', ś:'s', ź:'z', ż:'z' }
+  return text
+    .toLowerCase()
+    .split('').map(ch => map[ch] || ch).join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+// Generuje krzywą jakości (0-100) w kształcie "górki" wyśrodkowanej na wartości "ok".
+// Używane przez DefectManager przy tworzeniu własnych (nie wbudowanych) wad.
+export function buildCurve(target, min, max, tolerance) {
+  const t = Number(target)
+  const width = tolerance && tolerance > 0 ? Number(tolerance) : Math.max((max - min) * 0.12, (max - min) * 0.02 + 0.01)
+  const raw = [
+    [min, 15],
+    [t - width * 2, 45],
+    [t - width, 75],
+    [t, 100],
+    [t + width, 75],
+    [t + width * 2, 45],
+    [max, 15]
+  ]
+  const seen = new Set()
+  return raw
+    .map(([x, y]) => [Math.min(max, Math.max(min, x)), y])
+    .sort((a, b) => a[0] - b[0])
+    .filter(([x]) => {
+      if (seen.has(x)) return false
+      seen.add(x)
+      return true
+    })
+}
+
+export function curveVal(x, pts) {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i]
+    const [x1, y1] = pts[i + 1]
+    if (x >= x0 && x <= x1) {
+      const t = (x - x0) / (x1 - x0)
+      return y0 + t * (y1 - y0)
+    }
+  }
+  return pts[pts.length - 1][1]
+}
+
+export const SUCCESS_THRESHOLD  = 12  // % ryzyka wady docelowej, poniżej którego uznajemy sztukę za dobrą
+export const OTHERS_THRESHOLD   = 40  // % maks. ryzyka wad pobocznych
+export const CUSHION_MIN        = 5   // mm
+export const CUSHION_PENALTY    = 30  // pkt ryzyka przy poduszce < 5 mm
+export const WARN_THRESHOLD     = 35  // próg żółty w DefectsPanel
 
 // -------------------------------------------------------------
-// 7. WADY – model tendencyjny
+// 2. MASZYNA I FIZYKA PROCESU
+// -------------------------------------------------------------
+export const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
+
+// profil wagowy stref cylindra przy liczeniu temperatury masy – strefa bliżej dyszy ma większy wpływ
+const MELT_WEIGHTS = { T1: 0.34, T2: 0.24, T3: 0.19, T4: 0.14, T5: 0.09 }
+
+// temperatura masy = ważony profil cylindra + przyrost od ścinania (przeciwciśnienie, obroty)
+export function meltTemp(values) {
+  let sum = 0
+  let wsum = 0
+  Object.entries(MELT_WEIGHTS).forEach(([id, w]) => {
+    sum += (Number(values[id]) || 0) * w
+    wsum += w
+  })
+  const profile = wsum > 0 ? sum / wsum : 0
+  const shear = 0.35 * (Number(values.Prz) || 0) + 12 * (Number(values.Ob) || 0)
+  return { profile, shear, Tm: profile + shear }
+}
+
+function screwAreaCm2(m) {
+  const r = m.D / 20 // mm -> cm
+  return Math.PI * r * r
+}
+
+// droga wtrysku potrzebna do napełnienia gniazda [mm] = objętość detalu / pole przekroju ślimaka
+export function fillStroke(m = MACHINE) {
+  return (m.Vpart / screwAreaCm2(m)) * 10 // cm -> mm
+}
+
+// poduszka = droga faktycznie dostępna na napełnianie (doz - Pp) minus droga potrzebna na detal
+export function cushion(values, m = MACHINE) {
+  const doz = Number(values.doz) || 0
+  const pp = Number(values.Pp) || 0
+  const need = fillStroke(m)
+  const available = Math.max(0, doz - pp)
+  const raw = Math.round((available - need) * 10) / 10
+  return { raw, cushion: Math.max(0, raw), need, available }
+}
+
+// wartość "wirtualnego" parametru używanego przez model wad (Tm, cushion) albo zwykłego suwaka
+export function paramValue(id, values, m = MACHINE) {
+  if (id === 'Tm') return meltTemp(values).Tm
+  if (id === 'cushion') return cushion(values, m).raw
+  return Number(values[id])
+}
+
+// jakość [0-100] dla danego parametru wady; obsługuje trzy formaty:
+//  - legacy: { curve: [[x,y], ...] }               (własne wady z DefectManager)
+//  - okno:   { type:'window', lo, hi, k }           (oba kierunki szkodzą)
+//  - kierunkowy: { dir:+1/-1, x50, k }              (logistyczne przejście wokół x50)
+export function quality(p, x) {
+  if (p.curve) return curveVal(x, p.curve)
+  if (p.type === 'window') {
+    const { lo, hi, k } = p
+    if (x < lo) return 100 / (1 + Math.exp((lo - x) / k))
+    if (x > hi) return 100 / (1 + Math.exp((x - hi) / k))
+    return 100
+  }
+  const { x50, k, dir } = p
+  const z = dir >= 0 ? (x - x50) / k : (x50 - x) / k
+  return 100 / (1 + Math.exp(-z))
+}
+
+// podsumowanie fizyczne bieżącego cyklu (na razie tylko poduszka – rozszerzalne)
+export function computeProcessSummary(values, m = MACHINE) {
+  return cushion(values, m)
+}
+
+// wartości startowe = wartości domyślne wszystkich parametrów
+export function defaultValues() {
+  const v = {}
+  ALL_PARAMS.forEach(p => { v[p.id] = p.def })
+  return v
+}
+
+// -------------------------------------------------------------
+// 3. WADY – model tendencyjny
 //    dir: +1 = zwiększenie parametru naprawia wadę
 //         -1 = zmniejszenie parametru naprawia wadę
 //    x50: wartość, przy której wada jest w połowie naprawiona
@@ -110,7 +275,7 @@ export const DEFECTS = {
 }
 
 // -------------------------------------------------------------
-// 8. NOTATKI TRENERA (checklista mechaniczna – to, czego nastawą nie naprawisz)
+// 4. NOTATKI TRENERA (checklista mechaniczna – to, czego nastawą nie naprawisz)
 // -------------------------------------------------------------
 export const TRAINER_NOTES = {
   niedolanie: [
@@ -167,96 +332,12 @@ export const TRAINER_NOTES = {
 }
 
 // -------------------------------------------------------------
-// 9. ĆWICZENIA – stały, zaprojektowany start zamiast losowania
-//    Zasada: JEDNA przyczyna dominująca, tło zdrowe.
-//    Losowanie psuje dydaktykę - raz trafi łatwy przypadek, raz niemożliwy.
+// Uwaga: dane ĆWICZEŃ (wartości wejściowe/docelowe dla poszczególnych wad)
+// przeniesione do osobnego pliku: src/data/exercises.js
 // -------------------------------------------------------------
-export const EXERCISES = {
-  niedolanie: {
-    id: 'niedolanie',
-    label: 'Niedolanie – wariant A: „maszyna nie ma czym dolać”',
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
-    material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
-    start: {
-      T1: 215, T2: 215, T3: 220, T4: 220, T5: 215, TR: 60,
-      doz: 47, Pw1: 95, Pw2: 95, Pw3: 95, Pw4: 95, Pw5: 25,
-      Pp: 14, Pd: 110, Td: 9, GR: 140,
-      Prz: 14, Ob: 0.6, Deko: 6,
-      Tr: 30, Ts: 30, Fz: 175, Tc: 45
-    },
-    // podgląd wyłącznie dla trenera (widok admin)
-    reference: {
-      T1: 245, T2: 245, T3: 240, T4: 235, T5: 230,
-      doz: 70, Pw1: 125, Pw2: 125, Pw3: 115, Pw4: 95, Pw5: 15,
-      Pp: 8, Pd: 95, Td: 9,
-      Prz: 12, Deko: 5, Tr: 55, Ts: 55, Fz: 185
-    },
-    focus: ['doz', 'Pw1', 'Pp', 'T1', 'T2', 'T3', 'T4', 'T5', 'Tr'],
-    pass: { target: 12, others: 40, cushion: 5 },
-    keyNumber: { label: 'Droga na napełnienie gniazda', value: 45.3, unit: 'mm' },
-    hints: [
-      { after: 2, when: (v, m) => cushion(v, m).raw < 5,
-        text: 'Poduszka poniżej 5 mm – docisk nie ma na co działać.' },
-      { after: 4, when: (v) => v.doz < 55,
-        text: 'Cztery cykle, ryzyko prawie nie drgnęło. Coś blokuje efekt.' },
-      { after: 5, when: (v) => meltTemp(v).Tm < 235 && v.T2 <= 215,
-        text: 'Podniosłeś dyszę. O ile wzrosła temperatura MASY? Dlaczego tak mało?' },
-      { after: 7, when: (v) => v.doz < 55,
-        text: 'Droga na napełnienie: 45,3 mm. Twój skok dozowania: ' }
-    ]
-  },
-
-  niedolanie_B: {
-    id: 'niedolanie',
-    label: 'Niedolanie – wariant B: „poduszka jest, problem gdzie indziej”',
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
-    material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
-    start: {
-      T1: 195, T2: 195, T3: 200, T4: 200, T5: 195, TR: 60,
-      doz: 72, Pw1: 30, Pw2: 30, Pw3: 30, Pw4: 30, Pw5: 20,
-      Pp: 16, Pd: 110, Td: 9, GR: 140,
-      Prz: 14, Ob: 0.6, Deko: 6,
-      Tr: 20, Ts: 20, Fz: 175, Tc: 45
-    },
-    focus: ['Pw1', 'Pp', 'T1', 'T2', 'T3', 'T4', 'T5', 'Tr'],
-    pass: { target: 12, others: 40, cushion: 5 },
-    hints: [
-      { after: 3, when: (v) => v.doz > 80,
-        text: 'Poduszka była zdrowa od startu. Dozowanie to tu fałszywy trop.' }
-    ]
-  },
-
-  niedolanie_C: {
-    id: 'niedolanie',
-    label: 'Niedolanie – wariant C: „to nie są nastawy” (ukryta usterka)',
-    // leak 0.55 = przeciekający zawór zwrotny. Poduszka SKACZE cykl po cyklu.
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0.55 },
-    material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
-    start: {
-      T1: 240, T2: 240, T3: 240, T4: 235, T5: 230, TR: 60,
-      doz: 66, Pw1: 125, Pw2: 125, Pw3: 115, Pw4: 95, Pw5: 15,
-      Pp: 8, Pd: 95, Td: 9, GR: 140,
-      Prz: 12, Ob: 0.6, Deko: 5,
-      Tr: 52, Ts: 52, Fz: 180, Tc: 45
-    },
-    focus: ['doz', 'Pw1', 'Pp', 'T1', 'T2', 'T3', 'T4', 'T5', 'Tr'],
-    pass: { target: 12, others: 40, cushion: 5 },
-    hints: [
-      { after: 5, text: 'Nastawy wyglądają wzorowo. Spójrz na poduszkę w LOGU, nie w tym cyklu.' },
-      { after: 8, text: 'Stabilna poduszka to nastawa. Skacząca poduszka to mechanika.' }
-    ]
-  }
-}
-
-// wartości startowe ćwiczenia (uzupełnione defaultami dla pól nieujętych)
-export function exerciseValues(key) {
-  const ex = EXERCISES[key]
-  if (!ex) return defaultValues()
-  return { ...defaultValues(), ...ex.start }
-}
 
 // -------------------------------------------------------------
-// 10. SILNIK WYNIKU
+// 5. SILNIK WYNIKU
 // -------------------------------------------------------------
 
 // ryzyko pojedynczej wady [%] z regułą twardą poduszki
@@ -293,7 +374,8 @@ export function riskFor(defectsRegistry, wada, values, m = MACHINE) {
   }
 }
 
-// ZGODNOŚĆ WSTECZ: sygnatura jak dotychczas, plus dodatkowe pola
+// ZGODNOŚĆ WSTECZ: sygnatura jak dotychczas, plus dodatkowe pola.
+// To jest funkcja, której używają App.jsx i DefectsPanel.jsx.
 export function computeResult(defectsRegistry, wada, values, m = MACHINE) {
   return riskFor(defectsRegistry, wada, values, m)
 }
@@ -345,7 +427,7 @@ export function diffCycles(prev, curr) {
 }
 
 // -------------------------------------------------------------
-// 11. ALIASY ZGODNOŚCI (App.jsx / DefectsPanel.jsx / DefectManager.jsx)
+// 7. ALIASY ZGODNOŚCI (App.jsx / DefectsPanel.jsx / DefectManager.jsx)
 // -------------------------------------------------------------
 export const BUILTIN_DEFECTS_ALL = DEFECTS
 export const TRAINER_NOTES_ALL   = TRAINER_NOTES
