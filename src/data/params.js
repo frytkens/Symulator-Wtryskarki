@@ -13,11 +13,11 @@ export const PARAMS = [
   { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 15.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
   { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 24.8, y: 70.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
 
-  { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw3', label: 'Pw3',                       x: 47.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw2', label: 'Pw2',                       x: 54.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80  },
-  { id: 'Pw1', label: 'Pw1',                       x: 61.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'm/s', def: 80, active: true, weight: 0.25 },
+  { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80  },
+  { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80  },
+  { id: 'Pw3', label: 'Pw3',                       x: 47.4, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80  },
+  { id: 'Pw2', label: 'Pw2',                       x: 54.2, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80  },
+  { id: 'Pw1', label: 'Pw1',                       x: 61.0, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80, active: true, weight: 0.25 },
   { id: 'GR',  label: 'GR – gr. ciśn. docisku',   x: 70.9, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 120 },
 
   { id: 'Deko', label: 'Deko – dekompresja',      x: 92.5, y: 85.0, min: 0,   max: 100,  step: 1,    unit: 'mm',  def: 7,  active: true, weight: 0.60 },
@@ -91,6 +91,9 @@ export const OTHERS_THRESHOLD   = 40  // % maks. ryzyka wad pobocznych
 export const CUSHION_MIN        = 5   // mm
 export const CUSHION_PENALTY    = 30  // pkt ryzyka przy poduszce < 5 mm
 export const WARN_THRESHOLD     = 35  // próg żółty w DefectsPanel
+export const DEKO_MAX_PCT       = 10  // % dawki dozowania – sufit dekompresji
+export const STROKE_MAX_RATIO   = 3   // droga dozowania <= 3 x D
+export const SPREAD_LOG_CYCLES  = 6   // ile cykli poduszki pokazujemy w logu
 
 // -------------------------------------------------------------
 // 2. MASZYNA I FIZYKA PROCESU
@@ -133,10 +136,63 @@ export function cushion(values, m = MACHINE) {
   return { raw, cushion: Math.max(0, raw), need, available }
 }
 
+// dekompresja jako % dawki dozowania – reguła skaluje się z doz, bez twardych mm
+export function dekoPct(values) {
+  const doz  = Number(values.doz)  || 0
+  const deko = Number(values.Deko) || 0
+  return doz > 0 ? Math.round((deko / doz) * 1000) / 10 : 0
+}
+
+// PRZEWIDYWANY rozrzut poduszki cykl-do-cyklu [mm] – deterministyczny.
+// Źródło kierunków: ENGEL PPS, slajd 39 (wahania wagi i wymiarów).
+export function cushionSpread(values, m = MACHINE) {
+  // 1) zamykanie zaworu zwrotnego: niska 1. prędkość = niepowtarzalne siadanie
+  const valve  = 1 / (1 + Math.exp(((Number(values.Pw1) || 0) - 60) / 10))
+  // 2) dekompresja powyżej 10% dawki = zasysanie powietrza
+  const deco   = Math.max(0, dekoPct(values) - DEKO_MAX_PCT) / 10
+  // 3) droga dozowania powyżej 3 x D
+  const stroke = Math.max(0, (Number(values.doz) || 0) / m.D - STROKE_MAX_RATIO) / 1.5
+  // 4) zużycie zaworu/cylindra – ukryta usterka, NIE do naprawy nastawami
+  const wear   = Number(m.leak) || 0
+  // 5) przeciwciśnienie stabilizuje dozowanie i jednorodność stopu
+  const back   = 1 / (1 + Math.exp(((Number(values.Prz) || 0) - 6) / 3))
+
+  const spread = 2.6 * valve + 1.8 * deco + 1.5 * stroke + 3.2 * wear + 1.2 * back
+  return Math.round(spread * 10) / 10
+}
+
+// PRNG z ziarnem – to samo ziarno daje tę samą serię (powtarzalność egzaminu)
+function seeded(seed) {
+  let s = (Number(seed) || 1) >>> 0
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0
+    return s / 4294967296
+  }
+}
+
+// Seria odczytów poduszki do LOGU. Asymetryczna: nieszczelny zawór pozwala
+// materiałowi uciec WSTECZ, więc pojedyncze cykle lecą W DÓŁ, nie w obie strony.
+export function cushionSeries(values, m = MACHINE, seed = 1, n = SPREAD_LOG_CYCLES) {
+  const base = cushion(values, m).cushion
+  const sp   = cushionSpread(values, m)
+  const rnd  = seeded(seed)
+  const out  = []
+  for (let i = 0; i < n; i++) {
+    const r    = rnd()
+    // 75% cykli blisko nominału, 25% wyraźny spadek
+    const dip  = r < 0.25 ? (0.55 + rnd() * 0.45) : (rnd() * 0.18)
+    const val  = base - dip * sp * 1.6
+    out.push(Math.round(Math.max(0, val) * 10) / 10)
+  }
+  return out
+}
+
 // wartość "wirtualnego" parametru używanego przez model wad (Tm, cushion) albo zwykłego suwaka
 export function paramValue(id, values, m = MACHINE) {
   if (id === 'Tm') return meltTemp(values).Tm
   if (id === 'cushion') return cushion(values, m).raw
+  if (id === 'dekoPct') return dekoPct(values)
+  if (id === 'cushionSpread') return cushionSpread(values, m)
   return Number(values[id])
 }
 
@@ -159,7 +215,11 @@ export function quality(p, x) {
 
 // podsumowanie fizyczne bieżącego cyklu (na razie tylko poduszka – rozszerzalne)
 export function computeProcessSummary(values, m = MACHINE) {
-  return cushion(values, m)
+  return {
+    ...cushion(values, m),
+    spread:  cushionSpread(values, m),
+    dekoPct: dekoPct(values)
+  }
 }
 
 // wartości startowe = wartości domyślne wszystkich parametrów
@@ -254,9 +314,26 @@ export const DEFECTS = {
     label: 'Smugi/haczyki powietrza – zaciągnięte powietrze na powierzchni',
     params: [
       { id: 'Prz',  weight: 35, dir: +1, x50: 9,   k: 6,  note: 'Przeciwciśnienie wypycha powietrze ze stopu' },
-      { id: 'Deko', weight: 35, dir: -1, x50: 12,  k: 6,  note: 'Za duża dekompresja zasysa powietrze przez dyszę' },
+      { id: 'dekoPct', weight: 35, dir: -1, x50: DEKO_MAX_PCT, k: 2.5, note: 'Dekompresja > 10% dawki dozowania zasysa powietrze przez dyszę' },
       { id: 'Pw1',  weight: 20, dir: -1, x50: 115, k: 30, note: 'Szybki wtrysk zaciąga powietrze do strugi' },
       { id: 'Ob',   weight: 10, dir: -1, x50: 0.9, k: 0.2, note: 'Za wysokie obroty = napowietrzanie przy podawaniu' }
+    ]
+  },
+
+  wahania: {
+    label: 'Wahania wagi i wymiarów – niestabilna poduszka',
+    cushionSensitive: true,
+    params: [
+      // ENGEL PPS rozdziela DWA pytania: "poduszka za mała?" i "poduszka się waha?".
+      // Dlatego cushion i cushionSpread są OSOBNYMI parametrami – mają inne działania naprawcze.
+      { id: 'cushionSpread', weight: 65, dir: -1, x50: 2.0, k: 0.55,
+        note: 'Rozrzut poduszki cykl-do-cyklu – zawór zwrotny nie siada powtarzalnie' },
+      { id: 'cushion',       weight: 15, dir: +1, x50: 5.0, k: 0.8,
+        note: 'Za mała poduszka = brak buforu, docisk nie ma czym pracować' },
+      { id: 'Tm',            weight: 12, type: 'window', lo: 226, hi: 254, k: 8,
+        note: 'Wahania lepkości = zmienny wyciek wsteczny przez zawór' },
+      { id: 'Pd',            weight: 8,  dir: +1, x50: 55, k: 16,
+        note: 'Docisk domyka bilans masy po przełączeniu' }
     ]
   },
 
@@ -322,6 +399,15 @@ export const TRAINER_NOTES = {
     'Smugi przy wlewku? – prędkość dekompresji i jej wielkość',
     'Widoczne pęcherzyki w wytryśniętej masie? – przeciwciśnienie, podawanie',
     'Sprawdź odpowietrzenie formy i szczelność dyszy'
+  ],
+  wahania: [
+    'Poduszka SKACZE czy DRYFUJE? Skok = zawór/cylinder. Dryf = zasyp, wilgoć, temp. strefy zasypu',
+    'Sprawdź zamykanie zaworu zwrotnego – podnieś PIERWSZĄ prędkość wtrysku (Pw1)',
+    'Sprawdź dekompresję – max ok. 10% dawki dozowania (Deko/doz)',
+    'Sprawdź zasyp materiału i drogę dozowania (max 3 x D ślimaka)',
+    'Sprawdź przeciwciśnienie – stabilizuje dozowanie i jednorodność stopu',
+    'Test bez rozbierania: kilka cykli BEZ DOCISKU – nieszczelny zawór ujawni się od razu',
+    'Zużyty zawór/cylinder = wymiana. Tego nastawą nie naprawisz'
   ],
   linie_laczenia: [
     'Czy karb występuje w obszarze łączenia strug?',
