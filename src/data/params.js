@@ -11,7 +11,7 @@ export const PARAMS = [
 
   { id: 'Td',  label: 'Td – czas docisku',        x: 8.4,  y: 85.0, min: 0,   max: 30,   step: 0.5,  unit: 's',   def: 5   },
   { id: 'Pd',  label: 'Pd – ciśn. docisku',       x: 15.1, y: 85.0, min: 0,   max: 220,  step: 5,    unit: 'bar', def: 40  },
-  { id: 'Pp',  label: 'Pp – pkt przełączenia',    x: 24.8, y: 70.0, min: 0,   max: 25,   step: 0.5,  unit: 'mm',  def: 10  },
+  { id: 'Pp',  label: 'Pp – pozycja przełączenia V/P', x: 24.8, y: 70.0, min: 0, max: 25, step: 1,  unit: 'mm',  def: 10  },
 
   { id: 'Pw5', label: 'Pw5',                       x: 33.7, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80  },
   { id: 'Pw4', label: 'Pw4',                       x: 40.5, y: 85.0, min: 0,   max: 200,  step: 2,    unit: 'mm/s', def: 80  },
@@ -454,52 +454,75 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   const coldPartStroke = fillStroke(m)
   const requiredStroke = coldPartStroke * (model.meltVolumeFactor || 1)
 
-  // Wymagane ciśnienie rośnie dla zimnego stopu/formy oraz przy szybszym przepływie.
-  const requiredPressure = Math.max(35,
+  // Bazowe zapotrzebowanie ciśnienia zależy od lepkości i prędkości.
+  const baseFlowPressure = Math.max(35,
     model.basePressure +
     Math.max(0, model.referenceMeltTemp - tm) * model.pressurePerColdMeltDegree +
     Math.max(0, model.referenceMoldTemp - moldTemp) * model.pressurePerColdMoldDegree +
     Math.max(0, commandedSpeed - model.referenceSpeed) * model.pressurePerExtraSpeed
   )
-  const pressureLimited = pressureLimit + 0.01 < requiredPressure
-  const pressureFactor = pressureLimited ? clamp01(pressureLimit / requiredPressure) : 1
-  const actualSpeed = commandedSpeed * pressureFactor
 
-  // Droga ślimaka wykonana w fazie prędkościowej. Wyższa wartość Pp = wcześniejsze V/P.
+  // Jeżeli limit jest niższy niż ciśnienie potrzebne do przepływu, maszyna nie osiąga prędkości.
+  const flowPressureFactor = clamp01(pressureLimit / baseFlowPressure)
+  const actualSpeed = commandedSpeed * flowPressureFactor
+
+  // Wyższa wartość Pp = wcześniejsze przełączenie; droga do V/P = dawka - pozycja V/P.
   const velocityStroke = Math.max(0, doz - vp)
   const thermalFlow = clamp01(
     1 + (tm - model.referenceMeltTemp) * model.flowPerMeltDegree +
         (moldTemp - model.referenceMoldTemp) * model.flowPerMoldDegree
   )
   const speedFlow = clamp01(0.72 + actualSpeed / model.referenceSpeed * 0.28)
-  const effectiveFillStroke = velocityStroke * thermalFlow * speedFlow * pressureFactor
+  const effectiveFillStroke = velocityStroke * thermalFlow * speedFlow * flowPressureFactor
   const fillAtVP = clamp01(effectiveFillStroke / requiredStroke)
 
-  // Docisk może uzupełnić jedynie niewielki brak po V/P, jeśli przed ślimakiem pozostał materiał.
+  // Docisk może uzupełnić maksymalnie określoną część objętości i tylko do pełnego detalu.
   const doseReserve = Math.max(0, doz - requiredStroke)
   const packingPotential = clamp01((Number(values.Pd) || 0) / model.referenceHoldingPressure) *
     clamp01((Number(values.Td) || 0) / model.gateFreezeTime) *
     clamp01(doseReserve / model.minimumCushion)
   const packableGap = Math.min(model.maxPackingFill, Math.max(0, 1 - fillAtVP))
-  const finalFill = clamp01(fillAtVP + packableGap * packingPotential)
+  const packingFill = packableGap * packingPotential
+  const finalFill = clamp01(fillAtVP + packingFill)
+  const holdingStroke = requiredStroke * packingFill
+  const actualCushion = Math.max(0, vp - holdingStroke)
 
-  const defectPct = Math.round(clamp01((model.goodFill - finalFill) / model.defectSpan) * 100)
+  // Ciśnienie rośnie wraz z końcem napełniania, a po niemal pełnym
+  // wypełnieniu przed V/P pojawia się stromy pik ciśnienia.
+  const fillPressureRise = clamp01((fillAtVP - model.pressureRiseStart) /
+    (1 - model.pressureRiseStart)) * model.fillPressureRise
+  const latePressureSpike = clamp01((fillAtVP - model.lateFillStart) /
+    (1 - model.lateFillStart)) * model.latePressureSpike
+  const requiredPressure = baseFlowPressure + fillPressureRise + latePressureSpike
+  const maxPressure = roundTo(Math.min(requiredPressure, pressureLimit), 0)
+  const pressureLimited = pressureLimit + 0.01 < requiredPressure
+
+  const finalFillMin = model.finalFillMin
+  const lateSwitch = fillAtVP > model.vpFillMax
+  const earlySwitch = fillAtVP < model.vpFillMin
+  const holdingWorked = holdingStroke >= model.minimumHoldingStroke
+  const overpackRisk = lateSwitch || pressureLimited
+  const processWindowOk =
+    fillAtVP >= model.vpFillMin &&
+    fillAtVP <= model.vpFillMax &&
+    finalFill >= finalFillMin &&
+    holdingWorked &&
+    !pressureLimited &&
+    actualCushion >= model.minimumCushion
+
+  const shortShotRisk = Math.round(clamp01((model.goodFill - finalFill) / model.defectSpan) * 100)
+  const lateSwitchRisk = Math.round(clamp01((fillAtVP - model.vpFillMax) /
+    (1 - model.vpFillMax)) * 100)
+  // W scenariuszu wada docelowa obejmuje nie tylko brak materiału, ale także
+  // nieprawidłowe okno V/P — kompletny detal z przełączeniem po 100% nadal jest NG.
+  const processPenalty = processWindowOk ? 0 : (lateSwitch ? Math.max(25, lateSwitchRisk) : 0)
+  const defectPct = Math.max(shortShotRisk, processPenalty)
   const mass = roundTo(model.referenceMass * finalFill, 1)
 
-  // Poduszka rzeczywista zależy od ilości tworzywa dostarczonego do formy.
-  // Przy niedolaniu pozostaje większa; po wypełnieniu zbliża się do rezerwy dawki.
-  const deliveredStroke = requiredStroke * finalFill
-  const actualCushion = Math.max(0, doz - deliveredStroke)
-
-  // Rzeczywisty skok do V/P wynika z pozycji dozowania i pozycji przełączenia.
-  // Dekompresja nie jest dodawana do drogi napełniania.
-  const injectionStroke = velocityStroke
-  const injectionTime = actualSpeed > 0 ? injectionStroke / actualSpeed : 0
+  const injectionTime = actualSpeed > 0 ? velocityStroke / actualSpeed : 0
   const missingStrokeAtVP = Math.max(0, requiredStroke - effectiveFillStroke)
-  const maxPressure = roundTo(Math.min(requiredPressure, pressureLimit), 0)
 
-  // Uproszczony dydaktyczny model plastyfikacji. Kalibracja bazowa:
-  // doz=60 mm, Ob=0.6, Prz=10 bar -> 6.5 s.
+  // Uproszczony model plastyfikacji.
   const screwSpeed = Math.max(0.05, Number(values.Ob) || 0)
   const backPressure = Number(values.Prz) || 0
   const dosingTime = model.referenceDosingTime *
@@ -520,25 +543,33 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   else if (finalFill < model.goodFill) visualLevel = 1
 
   const warnings = []
-  if (pressureLimited) warnings.push('Osiągnięto graniczne ciśnienie wtrysku – zadana prędkość nie została osiągnięta.')
+  if (pressureLimited) warnings.push('Osiągnięto graniczne ciśnienie wtrysku.')
   if (actualCushion < model.minimumCushion) warnings.push(`Poduszka poniżej ${model.minimumCushion} mm.`)
-  if (vp < model.lateVpWarning) warnings.push('Bardzo późne V/P: ryzyko piku ciśnienia, wypływki i przepakowania.')
+  if (earlySwitch) warnings.push('V/P zbyt wcześnie: za małe wypełnienie w chwili przełączenia.')
+  if (lateSwitch) warnings.push('V/P zbyt późno: gniazdo jest prawie lub całkowicie wypełnione przed dociskiem.')
+  if (!holdingWorked && finalFill >= finalFillMin) warnings.push('Brak rzeczywistego ruchu ślimaka po V/P — docisk nie wykonuje pracy.')
   if (tm > model.maximumMeltTemp) warnings.push('Temperatura masy przekracza bezpieczne okno materiału.')
 
   return {
     model: model.type,
     fillAtVP: roundTo(fillAtVP * 100, 1),
+    packingFill: roundTo(packingFill * 100, 1),
     finalFill: roundTo(finalFill * 100, 1),
     defectPct,
     visualLevel,
+    processWindowOk,
+    earlySwitch,
+    lateSwitch,
+    overpackRisk,
+    holdingWorked,
     mass,
     referenceMass: model.referenceMass,
     physicalCushion: roundTo(actualCushion, 1),
     actualCushion: roundTo(actualCushion, 1),
     doseReserve: roundTo(doseReserve, 1),
-    deliveredStroke: roundTo(deliveredStroke, 1),
     vpPosition: roundTo(vp, 1),
-    strokeToVP: roundTo(injectionStroke, 1),
+    holdingStroke: roundTo(holdingStroke, 1),
+    strokeToVP: roundTo(velocityStroke, 1),
     coldPartStroke: roundTo(coldPartStroke, 1),
     requiredStroke: roundTo(requiredStroke, 1),
     coldPartVolume: roundTo(m.Vpart, 1),
@@ -547,6 +578,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     missingStrokeAtVP: roundTo(missingStrokeAtVP, 1),
     commandedSpeed: roundTo(commandedSpeed, 1),
     actualSpeed: roundTo(actualSpeed, 1),
+    baseFlowPressure: roundTo(baseFlowPressure, 0),
     requiredPressure: roundTo(requiredPressure, 0),
     maxPressure,
     pressureLimit,
@@ -642,15 +674,21 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   const cushionValue = training?.physicalCushion ?? proc.raw
   const cushionDisplay = roundTo(cushionValue, 1)
 
+  const processWindowPassed = !cfg.requireProcessWindow || !training || training.processWindowOk
   const passed =
     target <= cfg.target &&
     worst.pct <= cfg.others &&
-    cushionValue >= cfg.cushion
+    cushionValue >= cfg.cushion &&
+    processWindowPassed
 
   const reasons = []
-  if (target > cfg.target)          reasons.push(`Wada docelowa nadal ${target}% (próg ${cfg.target}%)`)
+  if (target > cfg.target)          reasons.push(`Wada docelowa/proces V/P: ${target}% (próg ${cfg.target}%)`)
   if (worst.pct > cfg.others)       reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
   if (cushionValue < cfg.cushion)   reasons.push(`Poduszka ${cushionDisplay} mm – poniżej ${cfg.cushion} mm`)
+  if (training?.earlySwitch)        reasons.push(`V/P za wcześnie: ${training.fillAtVP}% wypełnienia przy przełączeniu`)
+  if (training?.lateSwitch)         reasons.push(`V/P za późno: ${training.fillAtVP}% wypełnienia przed dociskiem`)
+  if (training && !training.holdingWorked) reasons.push(`Docisk nie wykonał wymaganej pracy: ruch ślimaka ${training.holdingStroke} mm`)
+  if (training?.pressureLimited)    reasons.push(`Osiągnięto limit ciśnienia ${training.pressureLimit} bar`)
 
   return {
     passed, target, risks, others,

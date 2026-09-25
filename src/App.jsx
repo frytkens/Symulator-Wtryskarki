@@ -543,8 +543,21 @@ export default function App() {
           </div>
 
           <div className="defect-photo-card">
-            <img src={`/defects/${wada}.jpg`} alt={defects[wada]?.label || wada} />
-            <span>{defects[wada]?.label}</span>
+            {solved ? (
+              <div style={{ minHeight: 260, display: 'grid', placeItems: 'center', background: '#ecfdf3', color: '#18794e', textAlign: 'center', padding: 24 }}>
+                <div><div style={{ fontSize: 72, lineHeight: 1 }}>✓</div><strong style={{ fontSize: 24 }}>Detal kompletny — sztuka OK</strong></div>
+              </div>
+            ) : (
+              <img
+                src={processResult?.lateSwitch ? '/defects/wyplywy.jpg' : `/defects/${wada}.jpg`}
+                alt={processResult?.lateSwitch ? 'Zbyt późne V/P — ryzyko wypływki i przepakowania' : (defects[wada]?.label || wada)}
+              />
+            )}
+            <span>{solved
+              ? 'Detal kompletny — brak niedolania'
+              : processResult?.lateSwitch
+                ? 'Zbyt późne V/P — ryzyko wypływki i przepakowania'
+                : defects[wada]?.label}</span>
           </div>
         </div>
 
@@ -591,21 +604,25 @@ export default function App() {
                 <span className="ps-label">Skok wymagany dla stopu</span>
                 <span className="ps-value">{processResult.requiredStroke} mm</span>
               </div>}
-              {processResult.missingStrokeAtVP !== undefined && <div className="process-stat">
-                <span className="ps-label">Brakująca droga przy V/P</span>
-                <span className="ps-value">{processResult.missingStrokeAtVP} mm</span>
+              {processResult.fillAtVP !== undefined && <div className="process-stat">
+                <span className="ps-label">Wypełnienie przy V/P</span>
+                <span className="ps-value">{processResult.fillAtVP}%</span>
+              </div>}
+              {processResult.holdingStroke !== undefined && <div className="process-stat">
+                <span className="ps-label">Ruch ślimaka po V/P</span>
+                <span className="ps-value">{processResult.holdingStroke} mm</span>
               </div>}
               <div className="process-stat">
-                <span className="ps-label">Poduszka rzeczywista po docisku</span>
+                <span className="ps-label">Poduszka końcowa</span>
                 <span className="ps-value">{round(processResult.actualCushion ?? processResult.cushionRaw, 1)} mm</span>
               </div>
-              {processResult.doseReserve !== undefined && <div className="process-stat">
-                <span className="ps-label">Rezerwa dawki przy pełnym detalu</span>
-                <span className="ps-value">{processResult.doseReserve} mm</span>
-              </div>}
               {processResult.finalFill !== undefined && <div className="process-stat">
-                <span className="ps-label">Wypełnienie po docisku</span>
+                <span className="ps-label">Wypełnienie końcowe</span>
                 <span className="ps-value">{processResult.finalFill}%</span>
+              </div>}
+              {processResult.processWindowOk !== undefined && <div className="process-stat">
+                <span className="ps-label">Okno procesu V/P</span>
+                <span className="ps-value">{processResult.processWindowOk ? 'OK' : 'NG'}</span>
               </div>}
               {processResult.mass !== undefined && <div className="process-stat">
                 <span className="ps-label">Masa wypraski</span>
