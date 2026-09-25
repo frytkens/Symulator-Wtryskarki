@@ -22,13 +22,15 @@
 
 import { NIEDOLANIE_EXERCISES } from './niedolanie.js'
 import { PRZYPALENIA_EXERCISES } from './przypalenia.js'
-// import { WYPLYWY_EXERCISES } from './wyplywy.js'
+import { WYPLYWY_EXERCISES } from './wyplywy.js'
+import { WAHANIA_EXERCISES } from './wahania.js'
 // ...kolejne wady dopisać analogicznie
 
 export const EXERCISES = {
   ...NIEDOLANIE_EXERCISES,
-  ...PRZYPALENIA_EXERCISES
-  // ...WYPLYWY_EXERCISES,
+  ...PRZYPALENIA_EXERCISES,
+  ...WYPLYWY_EXERCISES,
+  ...WAHANIA_EXERCISES
 }
 
 // wartości startowe ćwiczenia (uzupełnione defaultami dla pól nieujętych)

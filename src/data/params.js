@@ -91,7 +91,9 @@ export const OTHERS_THRESHOLD   = 40  // % maks. ryzyka wad pobocznych
 export const CUSHION_MIN        = 5   // mm
 export const CUSHION_PENALTY    = 30  // pkt ryzyka przy poduszce < 5 mm
 export const WARN_THRESHOLD     = 35  // próg żółty w DefectsPanel
-export const DEKO_MAX_PCT       = 10  // % dawki dozowania – sufit dekompresji
+export const DEKO_MAX_PCT       = 10  // % dawki dozowania – zalecana wartość dekompresji:
+                                       // cel dla wahania (za mało = zawór nie siada powtarzalnie),
+                                       // sufit dla smugi_powietrza (za dużo = zasysanie powietrza przez dyszę)
 export const STROKE_MAX_RATIO   = 3   // droga dozowania <= 3 x D
 export const SPREAD_LOG_CYCLES  = 6   // ile cykli poduszki pokazujemy w logu
 
@@ -148,8 +150,13 @@ export function dekoPct(values) {
 export function cushionSpread(values, m = MACHINE) {
   // 1) zamykanie zaworu zwrotnego: niska 1. prędkość = niepowtarzalne siadanie
   const valve  = 1 / (1 + Math.exp(((Number(values.Pw1) || 0) - 60) / 10))
-  // 2) dekompresja powyżej 10% dawki = zasysanie powietrza
-  const deco   = Math.max(0, dekoPct(values) - DEKO_MAX_PCT) / 10
+  // 2) dekompresja NIŻSZA niż zalecane 10% dawki = zawór zwrotny nie siada
+  //    powtarzalnie (za mało odciążenia przed skokiem). Powyżej 10% powtarzalność
+  //    siadania zaworu już nie rośnie – ryzyko powyżej tego progu to zasysanie
+  //    powietrza przez dyszę, ujęte osobno w wadzie smugi_powietrza (dekoPct, x50=10).
+  //    Korekta na podstawie uwagi technologa: "dekompresja większa poprawia pracę
+  //    zaworu zwrotnego, docelowo zaleca się 10% dawki dozowania".
+  const deco   = Math.max(0, DEKO_MAX_PCT - dekoPct(values)) / 10
   // 3) droga dozowania powyżej 3 x D
   const stroke = Math.max(0, (Number(values.doz) || 0) / m.D - STROKE_MAX_RATIO) / 1.5
   // 4) zużycie zaworu/cylindra – ukryta usterka, NIE do naprawy nastawami
@@ -403,7 +410,7 @@ export const TRAINER_NOTES = {
   wahania: [
     'Poduszka SKACZE czy DRYFUJE? Skok = zawór/cylinder. Dryf = zasyp, wilgoć, temp. strefy zasypu',
     'Sprawdź zamykanie zaworu zwrotnego – podnieś PIERWSZĄ prędkość wtrysku (Pw1)',
-    'Sprawdź dekompresję – max ok. 10% dawki dozowania (Deko/doz)',
+    'Sprawdź dekompresję – dąż do ok. 10% dawki dozowania (Deko/doz): za mało = zawór nie siada powtarzalnie, za dużo = zasysanie powietrza',
     'Sprawdź zasyp materiału i drogę dozowania (max 3 x D ślimaka)',
     'Sprawdź przeciwciśnienie – stabilizuje dozowanie i jednorodność stopu',
     'Test bez rozbierania: kilka cykli BEZ DOCISKU – nieszczelny zawór ujawni się od razu',

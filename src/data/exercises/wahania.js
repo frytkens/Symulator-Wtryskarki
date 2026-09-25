@@ -17,34 +17,35 @@ export const WAHANIA_EXERCISES = {
     material: { ...MAT },
     // Trzy niezależne przyczyny rozrzutu naraz:
     //   Pw1 38  -> zawór zwrotny siada niepowtarzalnie
-    //   Deko 9 przy doz 62 = 14.5% -> powyżej reguły 10%
+    //   Deko 2 przy doz 62 = 3.2% -> poniżej zalecanych 10%, zawór nie jest
+    //           odciążony przed skokiem = niepowtarzalne siadanie (poprawka wg
+    //           uwagi technologa: większa dekompresja POPRAWIA pracę zaworu)
     //   Prz 3   -> brak stabilizacji dozowania
     start: {
       T1: 240, T2: 240, T3: 240, T4: 235, T5: 230, TR: 60,
       doz: 62, Pw1: 38, Pw2: 125, Pw3: 115, Pw4: 95, Pw5: 15,
       Pp: 9, Pd: 95, Td: 9, GR: 140,
-      Prz: 3, Ob: 0.6, Deko: 9,
+      Prz: 3, Ob: 0.6, Deko: 2,
       Tr: 52, Ts: 52, Fz: 180, Tc: 45
     },
-    // Zweryfikowane silnikiem: wahania=3%, najgorsza wada poboczna (wyplywy)=36%,
-    // poduszka=7.7mm, rozrzut=0.1mm -> PASS
+    // Zweryfikowane silnikiem po korekcie kierunku Deko (patrz cushionSpread w params.js).
     reference: {
       T1: 240, T2: 240, T3: 240, T4: 235, T5: 230,
       doz: 62, Pw1: 100, Pw2: 125, Pw3: 115, Pw4: 95, Pw5: 15,
       Pp: 9, Pd: 95, Td: 9,
-      Prz: 14, Deko: 4,
+      Prz: 14, Deko: 6,
       Tr: 52, Ts: 52, Fz: 180
     },
     focus: ['Pw1', 'Deko', 'Prz', 'doz', 'Pp'],
     pass: { target: 12, others: 40, cushion: 5 },
-    keyNumber: { label: 'Maks. dekompresja przy doz 62 mm (10% dawki)', value: 6.2, unit: 'mm' },
+    keyNumber: { label: 'Zalecana dekompresja przy doz 62 mm (10% dawki)', value: 6.2, unit: 'mm' },
     hints: [
       { after: 3,
         text: 'Poduszka w LOGU nie trzyma wartości. Pojedyncze cykle lecą w dół – co pozwala materiałowi uciec wstecz?' },
       { after: 5, when: (v) => v.Pw1 < 60,
         text: 'Zawór zwrotny musi siadać POWTARZALNIE. Co w nastawach decyduje o momencie jego zamknięcia?' },
-      { after: 7, when: (v) => dekoPct(v) > 10,
-        text: 'Policz: dekompresja / skok dozowania x 100%. Ile wyszło? Ile powinno być max?' },
+      { after: 7, when: (v) => dekoPct(v) < 10,
+        text: 'Policz: dekompresja / skok dozowania x 100%. Ile wyszło? Ile powinno być docelowo (podpowiedź: ok. 10%)?' },
       { after: 9, when: (v) => v.Prz < 8,
         text: 'Dozowanie bez przeciwciśnienia jest nierówne cykl po cyklu.' },
       { after: 12, when: (v, m) => cushionSpread(v, m) > 1.5,
@@ -64,7 +65,7 @@ export const WAHANIA_EXERCISES = {
       T1: 240, T2: 240, T3: 240, T4: 235, T5: 230, TR: 60,
       doz: 62, Pw1: 100, Pw2: 125, Pw3: 115, Pw4: 95, Pw5: 15,
       Pp: 9, Pd: 95, Td: 9, GR: 140,
-      Prz: 14, Ob: 0.6, Deko: 4,
+      Prz: 14, Ob: 0.6, Deko: 6,
       Tr: 52, Ts: 52, Fz: 180, Tc: 45
     },
     focus: ['Pw1', 'Deko', 'Prz'],
