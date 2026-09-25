@@ -451,7 +451,8 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   const tm = meltTemp(values).Tm
   const moldTemp = ((Number(values.Tr) || 0) + (Number(values.Ts) || 0)) / 2
   const pressureLimit = Number(values.GR) || 0
-  const requiredStroke = fillStroke(m)
+  const coldPartStroke = fillStroke(m)
+  const requiredStroke = coldPartStroke * (model.meltVolumeFactor || 1)
 
   // Wymagane ciśnienie rośnie dla zimnego stopu/formy oraz przy szybszym przepływie.
   const requiredPressure = Math.max(35,
@@ -537,7 +538,10 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     doseReserve: roundTo(doseReserve, 1),
     deliveredStroke: roundTo(deliveredStroke, 1),
     strokeToVP: roundTo(injectionStroke, 1),
+    coldPartStroke: roundTo(coldPartStroke, 1),
     requiredStroke: roundTo(requiredStroke, 1),
+    coldPartVolume: roundTo(m.Vpart, 1),
+    effectiveMeltVolume: roundTo(m.Vpart * (model.meltVolumeFactor || 1), 1),
     effectiveFillStroke: roundTo(effectiveFillStroke, 1),
     missingStrokeAtVP: roundTo(missingStrokeAtVP, 1),
     commandedSpeed: roundTo(commandedSpeed, 1),

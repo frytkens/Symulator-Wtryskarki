@@ -583,8 +583,12 @@ export default function App() {
                 <span className="ps-label">Droga ślimaka do V/P</span>
                 <span className="ps-value">{round(processResult.drogaDoVP ?? processResult.droga, 1)} mm</span>
               </div>
+              {processResult.actualCushion !== undefined && <div className="process-stat">
+                <span className="ps-label">Pozycja V/P → poduszka końcowa</span>
+                <span className="ps-value">{round(currentValues.Pp, 1)} → {processResult.actualCushion} mm</span>
+              </div>}
               {processResult.requiredStroke !== undefined && <div className="process-stat">
-                <span className="ps-label">Droga wymagana do napełnienia</span>
+                <span className="ps-label">Skok wymagany dla stopu</span>
                 <span className="ps-value">{processResult.requiredStroke} mm</span>
               </div>}
               {processResult.missingStrokeAtVP !== undefined && <div className="process-stat">
@@ -649,6 +653,9 @@ export default function App() {
               <div className="tc-warning">
                 ⚠ Poduszka poniżej 5 mm ({round(processResult.cushionRaw, 1)} mm) – docisk nie ma na czym działać, cykl nie zostanie zaliczony niezależnie od reszty nastaw.
               </div>
+            )}
+            {processResult.actualCushion !== undefined && processResult.actualCushion > Number(currentValues.Pp) + 0.05 && (
+              <div className="tc-warning">⚠ Błąd bilansu: poduszka końcowa nie może być większa od pozycji V/P.</div>
             )}
             {processResult.warnings?.map((warning, i) => (
               <div className="tc-warning" key={i}>⚠ {warning}</div>

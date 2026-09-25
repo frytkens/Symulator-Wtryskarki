@@ -33,6 +33,11 @@ export const NIEDOLANIE_EXERCISES = {
     processModel: {
       type: 'shortShotVP',
       referenceMass: 29.1,
+      // 32 cm³ is the cold part/cavity volume. During injection the PP melt has a
+      // larger specific volume. The factor calibrates required screw stroke so
+      // that V/P=12 mm corresponds to ~95% volumetric filling and packing ends
+      // with a physically possible cushion below the V/P position.
+      meltVolumeFactor: 1.115,
       goodFill: 0.985,
       defectSpan: 0.22,
       basePressure: 92,
@@ -47,7 +52,7 @@ export const NIEDOLANIE_EXERCISES = {
       referenceHoldingPressure: 75,
       gateFreezeTime: 6,
       minimumCushion: 5,
-      maxPackingFill: 0.035,
+      maxPackingFill: 0.05,
       lateVpWarning: 7,
       maximumMeltTemp: 260,
       referenceDose: 60,
