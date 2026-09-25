@@ -537,6 +537,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     actualCushion: roundTo(actualCushion, 1),
     doseReserve: roundTo(doseReserve, 1),
     deliveredStroke: roundTo(deliveredStroke, 1),
+    vpPosition: roundTo(vp, 1),
     strokeToVP: roundTo(injectionStroke, 1),
     coldPartStroke: roundTo(coldPartStroke, 1),
     requiredStroke: roundTo(requiredStroke, 1),
