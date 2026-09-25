@@ -317,9 +317,10 @@ export default function App() {
           // cykl zakończony – policz wynik i zapisz do logu
           setValues(currentValues => {
             const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine, activeExercise)
-            const isSolved = activeExercise
-              ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass, activeExercise).passed
-              : defectPct <= SUCCESS_THRESHOLD
+            const evaluation = activeExercise
+              ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass, activeExercise)
+              : null
+            const isSolved = evaluation ? evaluation.passed : defectPct <= SUCCESS_THRESHOLD
 
             let trend = 'first'
             if (lastDefectPct.current !== null) {
@@ -349,12 +350,12 @@ export default function App() {
             } : baseSummary)
 
             setCycleLog(log => [
-              { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend },
+              { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend, reasons: evaluation?.reasons || [] },
               ...log
             ])
-            setResultModal({ solved: isSolved, trend })
+            setResultModal({ solved: isSolved, trend, defectPct, evaluation })
 
-            if (running && !solved && isSolved) {
+            if (isSolved) {
               setRunning(false)
               setSolved(true)
             }
@@ -507,9 +508,10 @@ export default function App() {
         <button
           className="btn primary cycle-btn"
           onClick={handleStartCycle}
-          disabled={cycling}
+          disabled={cycling || !running || solved}
+          title={!running && !solved ? 'Najpierw kliknij „start”, aby wczytać scenariusz.' : ''}
         >
-          {cycling ? `Cykl… ${countdown}` : 'Start cyklu'}
+          {cycling ? `Cykl… ${countdown}` : solved ? 'Ćwiczenie zakończone' : 'Start cyklu'}
         </button>
       </div>
 
@@ -552,6 +554,13 @@ export default function App() {
 
       <div className="process-summary">
         <h3>Wynikowe parametry procesu</h3>
+        {resultModal && (
+          <div className={resultModal.solved ? 'solved-msg' : 'tc-warning'} style={{ marginBottom: 14 }}>
+            {resultModal.solved
+              ? '✓ SZTUKA OK — ĆWICZENIE ZAKOŃCZONE'
+              : `✕ SZTUKA NG${resultModal.evaluation?.reasons?.length ? ': ' + resultModal.evaluation.reasons.join(' • ') : ''}`}
+          </div>
+        )}
         {processResult ? (
           <>
             <div className="process-grid">
@@ -690,13 +699,20 @@ export default function App() {
             )}
 
             <div className={`verdict-title ${resultModal.solved ? 'ok' : 'ng'}`}>
-              {resultModal.solved ? 'Sztuka DOBRA' : 'Sztuka NG'}
+              {resultModal.solved ? 'SZTUKA OK — ĆWICZENIE ZAKOŃCZONE' : 'Sztuka NG'}
             </div>
             <p className="verdict-sub">
               {resultModal.solved
                 ? 'Detal jest kompletny, a ustawienia spełniają warunki jakościowe scenariusza.'
                 : 'Detal nadal nie spełnia warunków jakościowych. Przeanalizuj masę, poduszkę, V/P i ograniczenie ciśnienia.'}
             </p>
+
+            {!resultModal.solved && resultModal.evaluation?.reasons?.length > 0 && (
+              <div className="trainer-notes">
+                <h4>Dlaczego cykl nie został zaliczony</h4>
+                <ul>{resultModal.evaluation.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+              </div>
+            )}
 
             {!resultModal.solved && (
               <div className={`trend-badge ${trendMeta(resultModal.trend).cls}`}>
