@@ -593,17 +593,28 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   const proc = computeProcessSummary(values, m)
   const worst = others[0] || { pct: 0 }
 
+  // Scenariusze szkoleniowe mogą mieć własny, fizycznie uzasadniony model poduszki.
+  // N-01: poduszka = droga dozowania - droga wymagana na objętość detalu.
+  // Nie odejmujemy tutaj pozycji V/P po raz drugi.
+  const cushionValue = training?.physicalCushion ?? proc.raw
+  const cushionDisplay = roundTo(cushionValue, 1)
+
   const passed =
     target <= cfg.target &&
     worst.pct <= cfg.others &&
-    proc.raw >= cfg.cushion
+    cushionValue >= cfg.cushion
 
   const reasons = []
-  if (target > cfg.target)      reasons.push(`Wada docelowa nadal ${target}% (próg ${cfg.target}%)`)
-  if (worst.pct > cfg.others)   reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
-  if (proc.raw < cfg.cushion)   reasons.push(`Poduszka ${proc.cushion} mm – poniżej ${cfg.cushion} mm`)
+  if (target > cfg.target)          reasons.push(`Wada docelowa nadal ${target}% (próg ${cfg.target}%)`)
+  if (worst.pct > cfg.others)       reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
+  if (cushionValue < cfg.cushion)   reasons.push(`Poduszka ${cushionDisplay} mm – poniżej ${cfg.cushion} mm`)
 
-  return { passed, target, risks, others, process: proc, training, reasons }
+  return {
+    passed, target, risks, others,
+    process: training ? { ...proc, cushionRaw: cushionValue, raw: cushionValue, cushion: cushionDisplay } : proc,
+    training,
+    reasons
+  }
 }
 
 // porównanie dwóch cykli – feedback kierunkowy „co to kosztowało”
