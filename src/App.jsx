@@ -67,39 +67,40 @@ function randomChallengeValues(defectsRegistry, wada) {
 function computeProcessSummary(values, machine) {
   const speeds = ['Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5'].map(id => Number(values[id]) || 0)
   const vAvg = speeds.reduce((a, b) => a + b, 0) / speeds.length
-
-  // Droga wtrysku = skok dozowania + dekompresja - punkt przełączenia
-  // (np. doz=60, Deko=7, Pp=10 -> droga = 67 mm)
   const doz = Number(values.doz) || 0
-  const deko = Number(values.Deko) || 0
   const pp = Number(values.Pp) || 0
-  const droga = Math.max(0, doz + deko - pp)
-  const czasWtrysku = vAvg > 0 ? droga / vAvg : 0 // s = mm / (mm/s)
 
+  // Droga do V/P nie zawiera dekompresji.
+  const drogaDoVP = Math.max(0, doz - pp)
+  const czasWtrysku = vAvg > 0 ? drogaDoVP / vAvg : 0
   const czasDocisku = Number(values.Td) || 0
 
-  // Dozowanie i chłodzenie biegną równolegle (ślimak dozuje w trakcie stygnięcia formy),
-  // więc do cyklu wchodzi ten dłuższy z dwóch, a nie suma obu.
-  // ZAŁOŻENIE (do weryfikacji): czas dozowania = skok dozowania / obroty ślimaka.
-  const ob = Number(values.Ob) || 0
-  const czasDozowania = ob > 0 ? doz / ob : 0
-  const czasChlodzenia = 20 // stała na razie
+  // Model bazowy plastyfikacji: 60 mm przy Ob=0.6 i Prz=10 bar trwa 6.5 s.
+  const ob = Math.max(0.05, Number(values.Ob) || 0)
+  const prz = Number(values.Prz) || 0
+  const czasDozowania = 6.5 * (doz / 60) * (0.6 / ob) * Math.max(0.7, 1 + (prz - 10) * 0.012)
+  const czasChlodzenia = Math.max(0, Number(values.Tc) || 0)
   const czasChlodzenieDozowanie = Math.max(czasDozowania, czasChlodzenia)
-
-  const czasCyklu = czasWtrysku + czasDocisku + czasChlodzenieDozowanie
+  const czasPomocniczy = 6
+  const czasCyklu = czasWtrysku + czasDocisku + czasChlodzenieDozowanie + czasPomocniczy
   const wydajnoscSzt = czasCyklu > 0 ? Math.round(3600 / czasCyklu) : 0
-  const tcSetting = Number(values.Tc) || 0
-  const tcDelta = round(czasCyklu - tcSetting, 1)
-
-  // Poduszka (rezerwa materiału) – TA SAMA funkcja, która liczy ją silnik oceny,
-  // żeby liczba na ekranie zawsze zgadzała się z tym, co decyduje o zaliczeniu.
   const cush = cushion(values, machine)
 
   return {
-    vAvg, droga, czasWtrysku, czasDocisku,
-    czasDozowania, czasChlodzenia, czasChlodzenieDozowanie,
-    czasCyklu, wydajnoscSzt, tcSetting, tcDelta,
-    cushionRaw: cush.raw, cushionAvailable: cush.available, cushionNeed: cush.need
+    vAvg,
+    droga: drogaDoVP,
+    drogaDoVP,
+    czasWtrysku,
+    czasDocisku,
+    czasDozowania,
+    czasChlodzenia,
+    czasChlodzenieDozowanie,
+    czasPomocniczy,
+    czasCyklu,
+    wydajnoscSzt,
+    cushionRaw: cush.raw,
+    cushionAvailable: cush.available,
+    cushionNeed: cush.need
   }
 }
 
@@ -346,6 +347,16 @@ export default function App() {
             setProcessResult(trainingSummary ? {
               ...baseSummary,
               ...trainingSummary,
+              droga: trainingSummary.strokeToVP,
+              drogaDoVP: trainingSummary.strokeToVP,
+              czasWtrysku: trainingSummary.injectionTime,
+              czasDocisku: trainingSummary.holdingTime,
+              czasDozowania: trainingSummary.dosingTime,
+              czasChlodzenia: trainingSummary.coolingTime,
+              czasChlodzenieDozowanie: trainingSummary.coolingDosingTime,
+              czasPomocniczy: trainingSummary.auxiliaryTime,
+              czasCyklu: trainingSummary.cycleTime,
+              wydajnoscSzt: trainingSummary.productivity,
               cushionRaw: trainingSummary.physicalCushion
             } : baseSummary)
 
@@ -569,16 +580,25 @@ export default function App() {
                 <span className="ps-value">{round(processResult.actualSpeed ?? processResult.vAvg, 1)} mm/s</span>
               </div>
               <div className="process-stat">
-                <span className="ps-label">Droga wtrysku</span>
-                <span className="ps-value">{round(processResult.droga, 1)} mm</span>
+                <span className="ps-label">Droga ślimaka do V/P</span>
+                <span className="ps-value">{round(processResult.drogaDoVP ?? processResult.droga, 1)} mm</span>
               </div>
+              {processResult.requiredStroke !== undefined && <div className="process-stat">
+                <span className="ps-label">Droga wymagana do napełnienia</span>
+                <span className="ps-value">{processResult.requiredStroke} mm</span>
+              </div>}
+              {processResult.missingStrokeAtVP !== undefined && <div className="process-stat">
+                <span className="ps-label">Brakująca droga przy V/P</span>
+                <span className="ps-value">{processResult.missingStrokeAtVP} mm</span>
+              </div>}
               <div className="process-stat">
-                <span className="ps-label">Poduszka (rezerwa materiału)</span>
-                <span className="ps-value">
-                  {round(processResult.cushionRaw, 1)} mm
-                  <small> ({round(processResult.cushionAvailable, 1)} dostępne − {round(processResult.cushionNeed, 1)} potrzebne)</small>
-                </span>
+                <span className="ps-label">Poduszka rzeczywista po docisku</span>
+                <span className="ps-value">{round(processResult.actualCushion ?? processResult.cushionRaw, 1)} mm</span>
               </div>
+              {processResult.doseReserve !== undefined && <div className="process-stat">
+                <span className="ps-label">Rezerwa dawki przy pełnym detalu</span>
+                <span className="ps-value">{processResult.doseReserve} mm</span>
+              </div>}
               {processResult.finalFill !== undefined && <div className="process-stat">
                 <span className="ps-label">Wypełnienie po docisku</span>
                 <span className="ps-value">{processResult.finalFill}%</span>
@@ -604,12 +624,16 @@ export default function App() {
                 <span className="ps-value">{round(processResult.czasDozowania, 1)} s</span>
               </div>
               <div className="process-stat">
-                <span className="ps-label">Czas chłodzenia</span>
+                <span className="ps-label">Czas chłodzenia zadany</span>
                 <span className="ps-value">{processResult.czasChlodzenia} s</span>
               </div>
               <div className="process-stat">
-                <span className="ps-label">→ do cyklu (max z dwóch powyżej)</span>
+                <span className="ps-label">Chłodzenie/dozowanie do cyklu</span>
                 <span className="ps-value">{round(processResult.czasChlodzenieDozowanie, 1)} s</span>
+              </div>
+              <div className="process-stat">
+                <span className="ps-label">Ruchy formy i wyrzut</span>
+                <span className="ps-value">{round(processResult.czasPomocniczy, 1)} s</span>
               </div>
               <div className="process-stat total">
                 <span className="ps-label">Czas cyklu (obliczony)</span>
@@ -621,11 +645,6 @@ export default function App() {
               </div>
             </div>
 
-            {processResult.tcDelta > 0 && (
-              <div className="tc-warning">
-                ⚠ Obliczony czas cyklu jest o {processResult.tcDelta}s dłuższy niż nastawa Tc ({processResult.tcSetting}s) – maszyna nie zdąży w zadanym czasie.
-              </div>
-            )}
             {processResult.cushionRaw < 5 && (
               <div className="tc-warning">
                 ⚠ Poduszka poniżej 5 mm ({round(processResult.cushionRaw, 1)} mm) – docisk nie ma na czym działać, cykl nie zostanie zaliczony niezależnie od reszty nastaw.

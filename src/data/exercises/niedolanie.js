@@ -49,7 +49,13 @@ export const NIEDOLANIE_EXERCISES = {
       minimumCushion: 5,
       maxPackingFill: 0.035,
       lateVpWarning: 7,
-      maximumMeltTemp: 260
+      maximumMeltTemp: 260,
+      referenceDose: 60,
+      referenceScrewSpeed: 0.6,
+      referenceBackPressure: 10,
+      referenceDosingTime: 6.5,
+      backPressureTimeFactor: 0.012,
+      auxiliaryTime: 6
     },
     hints: [
       { after: 2, text: 'Porównaj drogę dozowania, pozycję V/P i poduszkę. Czy naprawdę brakuje materiału?' },

@@ -29,7 +29,7 @@ export const PARAMS = [
 export const CLAMP_PARAMS = [
   { id: 'Tr', label: 'Tr – temp. strony ruchomej', x: 44.8, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
   { id: 'Ts', label: 'Ts – temp. strony stałej',   x: 65.5, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
-  { id: 'Tc', label: 'Tc – czas cyklu',            x: 44.8, y: 90.0, min: 0,  max: 120, step: 1, unit: 's',  def: 30 },
+  { id: 'Tc', label: 'Tc – czas chłodzenia',            x: 44.8, y: 90.0, min: 0,  max: 120, step: 1, unit: 's',  def: 30 },
   { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 200, step: 5, unit: 't',  def: 180 }
 ]
 
@@ -475,18 +475,42 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   const fillAtVP = clamp01(effectiveFillStroke / requiredStroke)
 
   // Docisk może uzupełnić jedynie niewielki brak po V/P, jeśli przed ślimakiem pozostał materiał.
-  const physicalCushion = Math.max(0, doz - requiredStroke)
+  const doseReserve = Math.max(0, doz - requiredStroke)
   const packingPotential = clamp01((Number(values.Pd) || 0) / model.referenceHoldingPressure) *
     clamp01((Number(values.Td) || 0) / model.gateFreezeTime) *
-    clamp01(physicalCushion / model.minimumCushion)
+    clamp01(doseReserve / model.minimumCushion)
   const packableGap = Math.min(model.maxPackingFill, Math.max(0, 1 - fillAtVP))
   const finalFill = clamp01(fillAtVP + packableGap * packingPotential)
 
   const defectPct = Math.round(clamp01((model.goodFill - finalFill) / model.defectSpan) * 100)
   const mass = roundTo(model.referenceMass * finalFill, 1)
-  const injectionStroke = Math.min(velocityStroke, requiredStroke / Math.max(0.25, thermalFlow * speedFlow * pressureFactor))
+
+  // Poduszka rzeczywista zależy od ilości tworzywa dostarczonego do formy.
+  // Przy niedolaniu pozostaje większa; po wypełnieniu zbliża się do rezerwy dawki.
+  const deliveredStroke = requiredStroke * finalFill
+  const actualCushion = Math.max(0, doz - deliveredStroke)
+
+  // Rzeczywisty skok do V/P wynika z pozycji dozowania i pozycji przełączenia.
+  // Dekompresja nie jest dodawana do drogi napełniania.
+  const injectionStroke = velocityStroke
   const injectionTime = actualSpeed > 0 ? injectionStroke / actualSpeed : 0
+  const missingStrokeAtVP = Math.max(0, requiredStroke - effectiveFillStroke)
   const maxPressure = roundTo(Math.min(requiredPressure, pressureLimit), 0)
+
+  // Uproszczony dydaktyczny model plastyfikacji. Kalibracja bazowa:
+  // doz=60 mm, Ob=0.6, Prz=10 bar -> 6.5 s.
+  const screwSpeed = Math.max(0.05, Number(values.Ob) || 0)
+  const backPressure = Number(values.Prz) || 0
+  const dosingTime = model.referenceDosingTime *
+    (doz / model.referenceDose) *
+    (model.referenceScrewSpeed / screwSpeed) *
+    Math.max(0.7, 1 + (backPressure - model.referenceBackPressure) * model.backPressureTimeFactor)
+  const coolingTime = Math.max(0, Number(values.Tc) || 0)
+  const holdingTime = Math.max(0, Number(values.Td) || 0)
+  const coolingDosingTime = Math.max(coolingTime, dosingTime)
+  const auxiliaryTime = model.auxiliaryTime
+  const cycleTime = injectionTime + holdingTime + coolingDosingTime + auxiliaryTime
+  const productivity = cycleTime > 0 ? Math.round(3600 / cycleTime) : 0
 
   let visualLevel = 0
   if (finalFill < 0.72) visualLevel = 4
@@ -496,7 +520,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
 
   const warnings = []
   if (pressureLimited) warnings.push('Osiągnięto graniczne ciśnienie wtrysku – zadana prędkość nie została osiągnięta.')
-  if (physicalCushion < model.minimumCushion) warnings.push(`Poduszka poniżej ${model.minimumCushion} mm.`)
+  if (actualCushion < model.minimumCushion) warnings.push(`Poduszka poniżej ${model.minimumCushion} mm.`)
   if (vp < model.lateVpWarning) warnings.push('Bardzo późne V/P: ryzyko piku ciśnienia, wypływki i przepakowania.')
   if (tm > model.maximumMeltTemp) warnings.push('Temperatura masy przekracza bezpieczne okno materiału.')
 
@@ -508,7 +532,14 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     visualLevel,
     mass,
     referenceMass: model.referenceMass,
-    physicalCushion: roundTo(physicalCushion, 1),
+    physicalCushion: roundTo(actualCushion, 1),
+    actualCushion: roundTo(actualCushion, 1),
+    doseReserve: roundTo(doseReserve, 1),
+    deliveredStroke: roundTo(deliveredStroke, 1),
+    strokeToVP: roundTo(injectionStroke, 1),
+    requiredStroke: roundTo(requiredStroke, 1),
+    effectiveFillStroke: roundTo(effectiveFillStroke, 1),
+    missingStrokeAtVP: roundTo(missingStrokeAtVP, 1),
     commandedSpeed: roundTo(commandedSpeed, 1),
     actualSpeed: roundTo(actualSpeed, 1),
     requiredPressure: roundTo(requiredPressure, 0),
@@ -516,6 +547,13 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     pressureLimit,
     pressureLimited,
     injectionTime: roundTo(injectionTime, 2),
+    dosingTime: roundTo(dosingTime, 1),
+    coolingTime: roundTo(coolingTime, 1),
+    holdingTime: roundTo(holdingTime, 1),
+    coolingDosingTime: roundTo(coolingDosingTime, 1),
+    auxiliaryTime: roundTo(auxiliaryTime, 1),
+    cycleTime: roundTo(cycleTime, 1),
+    productivity,
     meltTemperature: roundTo(tm, 1),
     moldTemperature: roundTo(moldTemp, 1),
     warnings
