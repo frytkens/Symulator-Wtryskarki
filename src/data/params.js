@@ -429,6 +429,99 @@ export const TRAINER_NOTES = {
 // przeniesione do osobnego pliku: src/data/exercises.js
 // -------------------------------------------------------------
 
+
+
+// -------------------------------------------------------------
+// SILNIK SZKOLENIOWY SCENARIUSZY (wersja 1: N-01)
+// Warstwa pośrednia: nastawy -> stan procesu -> obserwowalna wada.
+// Wartości są tendencyjne/dydaktyczne, nie są obliczeniami CAE.
+// -------------------------------------------------------------
+function clamp01(x) { return Math.max(0, Math.min(1, x)) }
+function roundTo(x, d = 1) { const f = 10 ** d; return Math.round(x * f) / f }
+
+export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
+  if (!scenario?.processModel || scenario.processModel.type !== 'shortShotVP') return null
+
+  const model = scenario.processModel
+  const doz = Number(values.doz) || 0
+  const vp = Number(values.Pp) || 0
+  const commandedSpeed = ['Pw1','Pw2','Pw3','Pw4','Pw5']
+    .map(id => Number(values[id]) || 0)
+    .reduce((a,b) => a+b, 0) / 5
+  const tm = meltTemp(values).Tm
+  const moldTemp = ((Number(values.Tr) || 0) + (Number(values.Ts) || 0)) / 2
+  const pressureLimit = Number(values.GR) || 0
+  const requiredStroke = fillStroke(m)
+
+  // Wymagane ciśnienie rośnie dla zimnego stopu/formy oraz przy szybszym przepływie.
+  const requiredPressure = Math.max(35,
+    model.basePressure +
+    Math.max(0, model.referenceMeltTemp - tm) * model.pressurePerColdMeltDegree +
+    Math.max(0, model.referenceMoldTemp - moldTemp) * model.pressurePerColdMoldDegree +
+    Math.max(0, commandedSpeed - model.referenceSpeed) * model.pressurePerExtraSpeed
+  )
+  const pressureLimited = pressureLimit + 0.01 < requiredPressure
+  const pressureFactor = pressureLimited ? clamp01(pressureLimit / requiredPressure) : 1
+  const actualSpeed = commandedSpeed * pressureFactor
+
+  // Droga ślimaka wykonana w fazie prędkościowej. Wyższa wartość Pp = wcześniejsze V/P.
+  const velocityStroke = Math.max(0, doz - vp)
+  const thermalFlow = clamp01(
+    1 + (tm - model.referenceMeltTemp) * model.flowPerMeltDegree +
+        (moldTemp - model.referenceMoldTemp) * model.flowPerMoldDegree
+  )
+  const speedFlow = clamp01(0.72 + actualSpeed / model.referenceSpeed * 0.28)
+  const effectiveFillStroke = velocityStroke * thermalFlow * speedFlow * pressureFactor
+  const fillAtVP = clamp01(effectiveFillStroke / requiredStroke)
+
+  // Docisk może uzupełnić jedynie niewielki brak po V/P, jeśli przed ślimakiem pozostał materiał.
+  const physicalCushion = Math.max(0, doz - requiredStroke)
+  const packingPotential = clamp01((Number(values.Pd) || 0) / model.referenceHoldingPressure) *
+    clamp01((Number(values.Td) || 0) / model.gateFreezeTime) *
+    clamp01(physicalCushion / model.minimumCushion)
+  const packableGap = Math.min(model.maxPackingFill, Math.max(0, 1 - fillAtVP))
+  const finalFill = clamp01(fillAtVP + packableGap * packingPotential)
+
+  const defectPct = Math.round(clamp01((model.goodFill - finalFill) / model.defectSpan) * 100)
+  const mass = roundTo(model.referenceMass * finalFill, 1)
+  const injectionStroke = Math.min(velocityStroke, requiredStroke / Math.max(0.25, thermalFlow * speedFlow * pressureFactor))
+  const injectionTime = actualSpeed > 0 ? injectionStroke / actualSpeed : 0
+  const maxPressure = roundTo(Math.min(requiredPressure, pressureLimit), 0)
+
+  let visualLevel = 0
+  if (finalFill < 0.72) visualLevel = 4
+  else if (finalFill < 0.84) visualLevel = 3
+  else if (finalFill < 0.93) visualLevel = 2
+  else if (finalFill < model.goodFill) visualLevel = 1
+
+  const warnings = []
+  if (pressureLimited) warnings.push('Osiągnięto graniczne ciśnienie wtrysku – zadana prędkość nie została osiągnięta.')
+  if (physicalCushion < model.minimumCushion) warnings.push(`Poduszka poniżej ${model.minimumCushion} mm.`)
+  if (vp < model.lateVpWarning) warnings.push('Bardzo późne V/P: ryzyko piku ciśnienia, wypływki i przepakowania.')
+  if (tm > model.maximumMeltTemp) warnings.push('Temperatura masy przekracza bezpieczne okno materiału.')
+
+  return {
+    model: model.type,
+    fillAtVP: roundTo(fillAtVP * 100, 1),
+    finalFill: roundTo(finalFill * 100, 1),
+    defectPct,
+    visualLevel,
+    mass,
+    referenceMass: model.referenceMass,
+    physicalCushion: roundTo(physicalCushion, 1),
+    commandedSpeed: roundTo(commandedSpeed, 1),
+    actualSpeed: roundTo(actualSpeed, 1),
+    requiredPressure: roundTo(requiredPressure, 0),
+    maxPressure,
+    pressureLimit,
+    pressureLimited,
+    injectionTime: roundTo(injectionTime, 2),
+    meltTemperature: roundTo(tm, 1),
+    moldTemperature: roundTo(moldTemp, 1),
+    warnings
+  }
+}
+
 // -------------------------------------------------------------
 // 5. SILNIK WYNIKU
 // -------------------------------------------------------------
@@ -469,7 +562,11 @@ export function riskFor(defectsRegistry, wada, values, m = MACHINE) {
 
 // ZGODNOŚĆ WSTECZ: sygnatura jak dotychczas, plus dodatkowe pola.
 // To jest funkcja, której używają App.jsx i DefectsPanel.jsx.
-export function computeResult(defectsRegistry, wada, values, m = MACHINE) {
+export function computeResult(defectsRegistry, wada, values, m = MACHINE, scenario = null) {
+  const training = simulateTrainingCycle(values, m, scenario)
+  if (training && wada === scenario.id) {
+    return { defectPct: training.defectPct, overallQuality: 100 - training.defectPct, contrib: [], training }
+  }
   return riskFor(defectsRegistry, wada, values, m)
 }
 
@@ -481,9 +578,11 @@ export function allRisks(defectsRegistry, values, m = MACHINE) {
 }
 
 // warunek zaliczenia: cel OK + nie zrobiłeś innej wady + poduszka fizycznie możliwa
-export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass) {
+export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, scenario = null) {
   const cfg = pass || { target: SUCCESS_THRESHOLD, others: OTHERS_THRESHOLD, cushion: CUSHION_MIN }
   const risks = allRisks(defectsRegistry, values, m)
+  const training = simulateTrainingCycle(values, m, scenario)
+  if (training && wada === scenario?.id) risks[wada] = training.defectPct
   const target = risks[wada]
 
   const others = Object.entries(risks)
@@ -504,7 +603,7 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass) 
   if (worst.pct > cfg.others)   reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
   if (proc.raw < cfg.cushion)   reasons.push(`Poduszka ${proc.cushion} mm – poniżej ${cfg.cushion} mm`)
 
-  return { passed, target, risks, others, process: proc, reasons }
+  return { passed, target, risks, others, process: proc, training, reasons }
 }
 
 // porównanie dwóch cykli – feedback kierunkowy „co to kosztowało”

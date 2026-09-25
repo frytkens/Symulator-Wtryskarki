@@ -5,7 +5,7 @@ import { LABELS } from './data/labels.js'
 import {
   PARAMS, CLAMP_PARAMS, ALL_PARAMS, MACHINE,
   BUILTIN_DEFECTS_ALL as BUILTIN_DEFECTS, TRAINER_NOTES_ALL as BUILTIN_TRAINER_NOTES,
-  curveVal, SUCCESS_THRESHOLD, computeResult, evaluateCycle, cushion
+  curveVal, SUCCESS_THRESHOLD, computeResult, evaluateCycle, cushion, simulateTrainingCycle
 } from './data/params.js'
 import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
 import DefectsPanel from './components/DefectsPanel.jsx'
@@ -154,7 +154,7 @@ export default function App() {
   const [exerciseKey, setExerciseKey] = useState(() => exercisesForWada('niedolanie')[0]?.key ?? null)
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
   const lastLoggedValues = useRef(defaultValues())
-  const lastDefectPct = useRef(computeResult(defects, wada, defaultValues()).defectPct)
+  const lastDefectPct = useRef(computeResult(defects, wada, defaultValues(), MACHINE, null).defectPct)
   const countdownRef = useRef(null)
 
   const cycling = countdown !== null
@@ -239,7 +239,7 @@ export default function App() {
       : randomChallengeValues(defects, wada)
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
@@ -256,7 +256,7 @@ export default function App() {
     const fresh = defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
@@ -277,7 +277,7 @@ export default function App() {
     const fresh = newExerciseKey ? exerciseValues(newExerciseKey, defaultValues) : defaultValues()
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, newWada, fresh, newMachine).defectPct
+    lastDefectPct.current = computeResult(defects, newWada, fresh, newMachine, newExerciseKey ? EXERCISES[newExerciseKey] : null).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
@@ -295,7 +295,7 @@ export default function App() {
     const fresh = exerciseValues(newExerciseKey, defaultValues)
     setValues(fresh)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh, newMachine).defectPct
+    lastDefectPct.current = computeResult(defects, wada, fresh, newMachine, EXERCISES[newExerciseKey]).defectPct
     setCycleLog([])
     setResultModal(null)
     setProcessResult(null)
@@ -316,9 +316,9 @@ export default function App() {
           clearInterval(countdownRef.current)
           // cykl zakończony – policz wynik i zapisz do logu
           setValues(currentValues => {
-            const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine)
+            const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine, activeExercise)
             const isSolved = activeExercise
-              ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass).passed
+              ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass, activeExercise).passed
               : defectPct <= SUCCESS_THRESHOLD
 
             let trend = 'first'
@@ -340,7 +340,13 @@ export default function App() {
               }))
             lastLoggedValues.current = currentValues
 
-            setProcessResult(computeProcessSummary(currentValues, exerciseMachine))
+            const baseSummary = computeProcessSummary(currentValues, exerciseMachine)
+            const trainingSummary = simulateTrainingCycle(currentValues, exerciseMachine, activeExercise)
+            setProcessResult(trainingSummary ? {
+              ...baseSummary,
+              ...trainingSummary,
+              cushionRaw: trainingSummary.physicalCushion
+            } : baseSummary)
 
             setCycleLog(log => [
               { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend },
@@ -476,6 +482,10 @@ export default function App() {
         </div>
       )}
 
+      {activeExercise?.learningGoal && (
+        <div className="exercise-hints"><strong>Cel ćwiczenia:</strong> {activeExercise.learningGoal}</div>
+      )}
+
       <div className="timer-bar">
         <div className="timer-display">
           <span className="timer-label">czas</span>
@@ -547,7 +557,7 @@ export default function App() {
             <div className="process-grid">
               <div className="process-stat">
                 <span className="ps-label">v śr. wtrysku</span>
-                <span className="ps-value">{round(processResult.vAvg, 1)} m/s</span>
+                <span className="ps-value">{round(processResult.actualSpeed ?? processResult.vAvg, 1)} mm/s</span>
               </div>
               <div className="process-stat">
                 <span className="ps-label">Droga wtrysku</span>
@@ -560,9 +570,21 @@ export default function App() {
                   <small> ({round(processResult.cushionAvailable, 1)} dostępne − {round(processResult.cushionNeed, 1)} potrzebne)</small>
                 </span>
               </div>
+              {processResult.finalFill !== undefined && <div className="process-stat">
+                <span className="ps-label">Wypełnienie po docisku</span>
+                <span className="ps-value">{processResult.finalFill}%</span>
+              </div>}
+              {processResult.mass !== undefined && <div className="process-stat">
+                <span className="ps-label">Masa wypraski</span>
+                <span className="ps-value">{processResult.mass} g <small>(ref. {processResult.referenceMass} g)</small></span>
+              </div>}
+              {processResult.maxPressure !== undefined && <div className="process-stat">
+                <span className="ps-label">Ciśnienie maks. / limit</span>
+                <span className="ps-value">{processResult.maxPressure} / {processResult.pressureLimit} bar</span>
+              </div>}
               <div className="process-stat">
                 <span className="ps-label">Czas wtrysku</span>
-                <span className="ps-value">{round(processResult.czasWtrysku, 2)} s</span>
+                <span className="ps-value">{round(processResult.injectionTime ?? processResult.czasWtrysku, 2)} s</span>
               </div>
               <div className="process-stat">
                 <span className="ps-label">Czas docisku</span>
@@ -600,6 +622,9 @@ export default function App() {
                 ⚠ Poduszka poniżej 5 mm ({round(processResult.cushionRaw, 1)} mm) – docisk nie ma na czym działać, cykl nie zostanie zaliczony niezależnie od reszty nastaw.
               </div>
             )}
+            {processResult.warnings?.map((warning, i) => (
+              <div className="tc-warning" key={i}>⚠ {warning}</div>
+            ))}
           </>
         ) : (
           <p className="process-summary-empty">Uruchom „Start cyklu”, żeby zobaczyć wynikowe parametry procesu.</p>
@@ -669,8 +694,8 @@ export default function App() {
             </div>
             <p className="verdict-sub">
               {resultModal.solved
-                ? 'Parametry dają akceptowalne ryzyko wystąpienia tej wady.'
-                : 'Zbyt wysokie ryzyko wystąpienia tej wady przy tych parametrach.'}
+                ? 'Detal jest kompletny, a ustawienia spełniają warunki jakościowe scenariusza.'
+                : 'Detal nadal nie spełnia warunków jakościowych. Przeanalizuj masę, poduszkę, V/P i ograniczenie ciśnienia.'}
             </p>
 
             {!resultModal.solved && (

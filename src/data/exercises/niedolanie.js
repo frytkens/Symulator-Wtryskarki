@@ -9,36 +9,52 @@ import { cushion, meltTemp } from '../params.js'
 export const NIEDOLANIE_EXERCISES = {
   niedolanie: {
     id: 'niedolanie',
-    label: 'Niedolanie – wariant A: „maszyna nie ma czym dolać”',
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
-    material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
+    code: 'N-01',
+    label: 'N-01 · Niedolanie: zbyt wczesne przełączenie V/P',
+    learningGoal: 'Rozpoznaj zbyt wczesne przełączenie V/P na podstawie niepełnego detalu, obniżonej masy i prawidłowej poduszki.',
+    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
-      T1: 190, T2: 195, T3: 200, T4: 205, T5: 210, TR: 60,
-      doz: 40, Pw1: 40, Pw2: 95, Pw3: 95, Pw4: 95, Pw5: 25,
-      Pp: 16, Pd: 110, Td: 9, GR: 140,
-      Prz: 14, Ob: 0.6, Deko: 6,
-      Tr: 20, Ts: 20, Fz: 175, Tc: 45
+      T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
+      doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
+      Pp: 20, Pd: 75, Td: 6, GR: 140,
+      Prz: 10, Ob: 0.6, Deko: 5,
+      Tr: 40, Ts: 40, Fz: 175, Tc: 35
     },
-    // podgląd wyłącznie dla trenera (widok admin)
-    // Zweryfikowane silnikiem: niedolanie=11%, najgorsza wada poboczna (wyplywy)=39%, poduszka=18.7mm → PASS
     reference: {
-      T1: 230, T2: 240, T3: 245, T4: 250, T5: 255,
-      doz: 70, Pw1: 120, Pw2: 125, Pw3: 115, Pw4: 95, Pw5: 15,
-      Pp: 7, Pd: 95, Td: 9,
-      Prz: 12, Deko: 5, Tr: 55, Ts: 55, Fz: 185
+      T1: 225, T2: 230, T3: 235, T4: 240, T5: 245,
+      doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
+      Pp: 12, Pd: 75, Td: 6, GR: 140,
+      Prz: 10, Ob: 0.6, Deko: 5, Tr: 40, Ts: 40, Fz: 175
     },
-    focus: ['doz', 'Pw1', 'Pp', 'T1', 'T2', 'T3', 'T4', 'T5', 'Tr'],
-    pass: { target: 12, others: 40, cushion: 5 },
-    keyNumber: { label: 'Droga na napełnienie gniazda', value: 45.3, unit: 'mm' },
+    focus: ['Pp', 'doz', 'Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5', 'GR', 'Pd', 'Td', 'T1', 'T2', 'T3', 'T4', 'T5', 'Tr', 'Ts'],
+    pass: { target: 12, others: 60, cushion: 5 },
+    keyNumber: { label: 'Cel lekcji', value: 'znaleźć przyczynę niedolania', unit: '' },
+    processModel: {
+      type: 'shortShotVP',
+      referenceMass: 29.1,
+      goodFill: 0.985,
+      defectSpan: 0.22,
+      basePressure: 92,
+      referenceMeltTemp: 238,
+      referenceMoldTemp: 40,
+      referenceSpeed: 90,
+      pressurePerColdMeltDegree: 1.5,
+      pressurePerColdMoldDegree: 0.45,
+      pressurePerExtraSpeed: 0.25,
+      flowPerMeltDegree: 0.004,
+      flowPerMoldDegree: 0.002,
+      referenceHoldingPressure: 75,
+      gateFreezeTime: 6,
+      minimumCushion: 5,
+      maxPackingFill: 0.035,
+      lateVpWarning: 7,
+      maximumMeltTemp: 260
+    },
     hints: [
-      { after: 2, when: (v, m) => cushion(v, m).raw < 5,
-        text: 'Poduszka poniżej 5 mm – docisk nie ma na co działać.' },
-      { after: 4, when: (v) => v.doz < 55,
-        text: 'Cztery cykle, ryzyko prawie nie drgnęło. Coś blokuje efekt.' },
-      { after: 5, when: (v) => meltTemp(v).Tm < 235 && v.T2 <= 215,
-        text: 'Podniosłeś dyszę. O ile wzrosła temperatura MASY? Dlaczego tak mało?' },
-      { after: 7, when: (v) => v.doz < 55,
-        text: 'Droga na napełnienie: 45,3 mm. Twój skok dozowania: ' }
+      { after: 2, text: 'Porównaj drogę dozowania, pozycję V/P i poduszkę. Czy naprawdę brakuje materiału?' },
+      { after: 4, when: (v) => v.doz > 66, text: 'Poduszka była prawidłowa już na początku. Zwiększenie dawki nie usuwa przyczyny.' },
+      { after: 5, when: (v) => v.Pp >= 18, text: 'Wyższa pozycja Pp oznacza wcześniejsze przełączenie. Sprawdź, jaką część gniazda napełniasz w fazie prędkościowej.' }
     ]
   },
 
