@@ -141,6 +141,8 @@ export default function App() {
   const customIds = new Set(Object.keys(customDefects))
 
   const [values, setValues] = useState(defaultValues)
+  const valuesRef = useRef(values)
+  useEffect(() => { valuesRef.current = values }, [values])
   const [running, setRunning] = useState(false)
   const [solved, setSolved] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
@@ -238,6 +240,7 @@ export default function App() {
     const fresh = activeExercise
       ? exerciseValues(exerciseKey, defaultValues)
       : randomChallengeValues(defects, wada)
+    valuesRef.current = fresh
     setValues(fresh)
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
@@ -255,6 +258,7 @@ export default function App() {
     setSolved(false)
     setElapsedMs(0)
     const fresh = defaultValues()
+    valuesRef.current = fresh
     setValues(fresh)
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
@@ -276,6 +280,7 @@ export default function App() {
     const newMachine = newExerciseKey ? EXERCISES[newExerciseKey].machine : MACHINE
     setExerciseKey(newExerciseKey)
     const fresh = newExerciseKey ? exerciseValues(newExerciseKey, defaultValues) : defaultValues()
+    valuesRef.current = fresh
     setValues(fresh)
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, newWada, fresh, newMachine, newExerciseKey ? EXERCISES[newExerciseKey] : null).defectPct
@@ -294,6 +299,7 @@ export default function App() {
     setElapsedMs(0)
     const newMachine = EXERCISES[newExerciseKey]?.machine || MACHINE
     const fresh = exerciseValues(newExerciseKey, defaultValues)
+    valuesRef.current = fresh
     setValues(fresh)
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, wada, fresh, newMachine, EXERCISES[newExerciseKey]).defectPct
@@ -305,7 +311,12 @@ export default function App() {
   }, [customDefects, wada])
 
   const handleChange = useCallback((id, raw) => {
-    setValues(prev => ({ ...prev, [id]: raw === '' ? '' : Number(raw) }))
+    const value = raw === '' ? '' : Number(raw)
+    setValues(prev => {
+      const next = { ...prev, [id]: value }
+      valuesRef.current = next
+      return next
+    })
   }, [])
 
   const handleStartCycle = useCallback(() => {
@@ -316,62 +327,67 @@ export default function App() {
         if (prev <= 1) {
           clearInterval(countdownRef.current)
           // cykl zakończony – policz wynik i zapisz do logu
-          setValues(currentValues => {
-            const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine, activeExercise)
-            const evaluation = activeExercise
-              ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass, activeExercise)
-              : null
-            const isSolved = evaluation ? evaluation.passed : defectPct <= SUCCESS_THRESHOLD
+          const currentValues = valuesRef.current
+          const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine, activeExercise)
+          const evaluation = activeExercise
+            ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass, activeExercise)
+            : null
+          const isSolved = evaluation ? evaluation.passed : defectPct <= SUCCESS_THRESHOLD
 
-            let trend = 'first'
-            if (lastDefectPct.current !== null) {
-              if (defectPct < lastDefectPct.current) trend = 'better'
-              else if (defectPct > lastDefectPct.current) trend = 'worse'
-              else trend = 'same'
-            }
-            lastDefectPct.current = defectPct
+          let trend = 'first'
+          if (lastDefectPct.current !== null) {
+            if (defectPct < lastDefectPct.current) trend = 'better'
+            else if (defectPct > lastDefectPct.current) trend = 'worse'
+            else trend = 'same'
+          }
+          lastDefectPct.current = defectPct
 
-            const changes = ALL_PARAMS
-              .filter(p => Number(currentValues[p.id]) !== Number(lastLoggedValues.current[p.id]))
-              .map(p => ({
-                id: p.id,
-                label: LABELS[p.id] || p.label,
-                from: lastLoggedValues.current[p.id],
-                to: currentValues[p.id],
-                unit: p.unit
-              }))
-            lastLoggedValues.current = currentValues
+          const changes = ALL_PARAMS
+            .filter(p => Number(currentValues[p.id]) !== Number(lastLoggedValues.current[p.id]))
+            .map(p => ({
+              id: p.id,
+              label: LABELS[p.id] || p.label,
+              from: lastLoggedValues.current[p.id],
+              to: currentValues[p.id],
+              unit: p.unit
+            }))
+          lastLoggedValues.current = { ...currentValues }
 
-            const baseSummary = computeProcessSummary(currentValues, exerciseMachine)
-            const trainingSummary = simulateTrainingCycle(currentValues, exerciseMachine, activeExercise)
-            setProcessResult(trainingSummary ? {
-              ...baseSummary,
-              ...trainingSummary,
-              droga: trainingSummary.strokeToVP,
-              drogaDoVP: trainingSummary.strokeToVP,
-              czasWtrysku: trainingSummary.injectionTime,
-              czasDocisku: trainingSummary.holdingTime,
-              czasDozowania: trainingSummary.dosingTime,
-              czasChlodzenia: trainingSummary.coolingTime,
-              czasChlodzenieDozowanie: trainingSummary.coolingDosingTime,
-              czasPomocniczy: trainingSummary.auxiliaryTime,
-              czasCyklu: trainingSummary.cycleTime,
-              wydajnoscSzt: trainingSummary.productivity,
-              cushionRaw: trainingSummary.physicalCushion
-            } : baseSummary)
+          const baseSummary = computeProcessSummary(currentValues, exerciseMachine)
+          const trainingSummary = simulateTrainingCycle(currentValues, exerciseMachine, activeExercise)
+          const completeSummary = trainingSummary ? {
+            ...baseSummary,
+            ...trainingSummary,
+            droga: trainingSummary.strokeToVP,
+            drogaDoVP: trainingSummary.strokeToVP,
+            czasWtrysku: trainingSummary.injectionTime,
+            czasDocisku: trainingSummary.holdingTime,
+            czasDozowania: trainingSummary.dosingTime,
+            czasChlodzenia: trainingSummary.coolingTime,
+            czasChlodzenieDozowanie: trainingSummary.coolingDosingTime,
+            czasPomocniczy: trainingSummary.auxiliaryTime,
+            czasCyklu: trainingSummary.cycleTime,
+            wydajnoscSzt: trainingSummary.productivity,
+            cushionRaw: trainingSummary.physicalCushion,
+            evaluationPassed: isSolved,
+            evaluationReasons: evaluation?.reasons || []
+          } : {
+            ...baseSummary,
+            evaluationPassed: isSolved,
+            evaluationReasons: evaluation?.reasons || []
+          }
+          setProcessResult(completeSummary)
 
-            setCycleLog(log => [
-              { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend, reasons: evaluation?.reasons || [] },
-              ...log
-            ])
-            setResultModal({ solved: isSolved, trend, defectPct, evaluation })
+          setCycleLog(log => [
+            { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend, reasons: evaluation?.reasons || [] },
+            ...log
+          ])
+          setResultModal({ solved: isSolved, trend, defectPct, evaluation })
 
-            if (isSolved) {
-              setRunning(false)
-              setSolved(true)
-            }
-            return currentValues
-          })
+          if (isSolved) {
+            setRunning(false)
+            setSolved(true)
+          }
           return 0
         }
         return prev - 1

@@ -674,16 +674,21 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   const cushionValue = training?.physicalCushion ?? proc.raw
   const cushionDisplay = roundTo(cushionValue, 1)
 
-  const processWindowPassed = !cfg.requireProcessWindow || !training || training.processWindowOk
+  const useTrainingWindow = Boolean(training && cfg.requireProcessWindow)
+  const processWindowPassed = !useTrainingWindow || training.processWindowOk
+  // N-01 ma własny spójny model wad ubocznych V/P (późne przełączenie,
+  // pik ciśnienia, brak pracy docisku). Nie blokujemy go starymi, niezależnymi
+  // krzywymi ryzyka innych ćwiczeń.
+  const otherDefectsPassed = useTrainingWindow ? true : worst.pct <= cfg.others
   const passed =
     target <= cfg.target &&
-    worst.pct <= cfg.others &&
+    otherDefectsPassed &&
     cushionValue >= cfg.cushion &&
     processWindowPassed
 
   const reasons = []
   if (target > cfg.target)          reasons.push(`Wada docelowa/proces V/P: ${target}% (próg ${cfg.target}%)`)
-  if (worst.pct > cfg.others)       reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
+  if (!useTrainingWindow && worst.pct > cfg.others) reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
   if (cushionValue < cfg.cushion)   reasons.push(`Poduszka ${cushionDisplay} mm – poniżej ${cfg.cushion} mm`)
   if (training?.earlySwitch)        reasons.push(`V/P za wcześnie: ${training.fillAtVP}% wypełnienia przy przełączeniu`)
   if (training?.lateSwitch)         reasons.push(`V/P za późno: ${training.fillAtVP}% wypełnienia przed dociskiem`)
