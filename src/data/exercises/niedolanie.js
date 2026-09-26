@@ -4,7 +4,7 @@
 // Struktura wpisu – patrz komentarz w src/data/exercises/index.js
 // =============================================================
 
-import { cushion, meltTemp } from '../params.js'
+import { cushion } from '../params.js'
 
 export const NIEDOLANIE_EXERCISES = {
   niedolanie: {

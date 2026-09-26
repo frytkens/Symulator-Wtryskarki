@@ -1,11 +1,27 @@
 import { useMemo, useState } from 'react'
-import { ALL_PARAMS, simulateTrainingCycle } from '../../data/params.js'
-import { EXERCISES, exerciseValues, VISIBLE_EXERCISE_KEYS } from '../../data/exercises/index.js'
-import { SINK_MODEL, BASE_START } from '../../data/exercises/zapadniecia.js'
+import { ALL_PARAMS, simulateTrainingCycle, riskFor, BUILTIN_DEFECTS_ALL as DEFECTS } from '../../data/params.js'
+import { EXERCISES } from '../../data/exercises/index.js'
+import { BASE_START } from '../../data/exercises/zapadniecia.js'
 import { LABELS } from '../../data/labels.js'
 import ParamStepper from './ParamStepper.jsx'
+import MachineSchematic from './MachineSchematic.jsx'
+
+// =============================================================
+// PANEL WPŁYWU WAD – tryb swobodnej analizy (odpowiednik starego panelu).
+// Ustawiasz dowolne wartości parametrów i obserwujesz, jak zmienia się ryzyko
+// każdej wady. Bez licznika czasu, bez losowania, bez wpływu na ćwiczenia.
+// =============================================================
 
 const P = Object.fromEntries(ALL_PARAMS.map(p => [p.id, p]))
+const clamp01 = x => Math.max(0, Math.min(1, x))
+const BORDER = 0.35
+
+// ok – wartość dobrego procesu, limit – początek wady, max – pełne nasilenie.
+function scale(v, ok, limit, max) {
+  if (v <= ok) return 0
+  if (v <= limit) return BORDER * (v - ok) / (limit - ok)
+  return BORDER + (1 - BORDER) * clamp01((v - limit) / (max - limit))
+}
 
 function defaultValues() {
   const v = {}
@@ -21,90 +37,65 @@ const GROUPS = [
   { title: 'Plastyfikacja', ids: ['doz', 'Deko', 'Prz', 'Ob'] }
 ]
 
-const clamp01 = x => Math.max(0, Math.min(1, x))
-
-// Wskaźniki liczone tymi samymi modelami, co ćwiczenia (jedno źródło prawdy).
-function indicators(values) {
-  const fill = simulateTrainingCycle(values, EXERCISES.niedolanie.machine, EXERCISES.niedolanie)
-  const sink = simulateTrainingCycle(values, EXERCISES.zapadniecia_Z01.machine, { processModel: SINK_MODEL })
-  const flash = simulateTrainingCycle(values, EXERCISES.wyplywy_W04.machine, EXERCISES.wyplywy_W04)
-  // W panelu wszystkie źródła ścinania działają w pełni (bez ograniczeń scenariusza).
+// Ryzyko [%] każdej wady z rejestru. Wady z ćwiczeń liczone są tymi samymi modelami,
+// co ćwiczenia; pozostałe – krzywymi wpływu z rejestru wad (jak w starym panelu).
+function modelRisks(values) {
+  const m = EXERCISES.niedolanie.machine
+  const sink = simulateTrainingCycle(values, m, EXERCISES.zapadniecia_Z03)
+  const flash = simulateTrainingCycle(values, m, EXERCISES.wyplywy_W04)
   const burnModel = EXERCISES.przypalenia_D01.processModel
-  const burnA = simulateTrainingCycle(values, EXERCISES.przypalenia_D01.machine,
-    { processModel: { ...burnModel, burn: { ...burnModel.burn, helperCap: Infinity } } })
-  const valveA = simulateTrainingCycle(values, EXERCISES.niedolanie_N012.machine, EXERCISES.niedolanie_N012)
-  // Wskaźnik zaworu z modelu N-02 (dekompresja + parametry pomocnicze: V1, T1/T2, przeciwciśnienie).
-  const valveQuality = valveA.valveQuality / 100
+  const burn = simulateTrainingCycle(values, m, { processModel: { ...burnModel, burn: { ...burnModel.burn, helperCap: Infinity } } })
+  const valve = simulateTrainingCycle({ ...values, _cycleIndex: 1 }, m, EXERCISES.niedolanie_N012)
   const fz = Number(values.Fz) || 1
+  // Skala jak w starym panelu: 0% przy dobrym procesie, ok. 35% na granicy pojawienia się wady
+  // (koniec strefy żółtej), powyżej – nasilenie wady do 100%.
   return {
-    list: [
-      {
-        id: 'niedolanie', label: 'Niedolanie',
-        pct: Math.round(clamp01((0.985 - fill.finalFill / 100) / 0.22) * 100),
-        detail: `wypełnienie ${fill.finalFill}% · przy V/P ${fill.fillAtVP}%`
-      },
-      {
-        id: 'zapadniecia', label: 'Zapadnięcia',
-        pct: Math.round(clamp01((sink.sinkDepth - 0.01) / 0.3) * 100),
-        detail: `głębokość ${sink.sinkDepth} mm · kompensacja skurczu ${sink.compensation}%`
-      },
-      {
-        id: 'wyplywy', label: 'Wypływki',
-        pct: Math.round(clamp01((flash.openingForce * 1.1 / fz - 0.8) / 0.6) * 100),
-        detail: `siła rozwierająca ${flash.openingForce} kN / zwarcie ${fz} kN${flash.flash ? ` · grat ${flash.burr} mm` : ''}`
-      },
-      {
-        id: 'diesel', label: 'Efekt Diesla',
-        pct: Math.round(clamp01((burnA.dieselRatio - 0.6) / 0.8) * 100),
-        detail: `V5 ${burnA.endSpeed} mm/s · przepustowość odpowietrzeń ${Math.round(burnA.ventFactor * 100)}%`
-      },
-      {
-        id: 'smugi', label: 'Smugi przypalonego materiału',
-        pct: Math.round(clamp01((burnA.localMeltTemp - 250) / 25) * 100),
-        detail: `lokalna temperatura stopu ${burnA.localMeltTemp} °C (próg 265 °C)`
-      },
-      {
-        id: 'wahania', label: 'Wahania masy (zawór zwrotny)',
-        pct: Math.round((1 - valveQuality) * 100),
-        detail: `stabilność zamykania zaworu ${Math.round(valveQuality * 100)}%`
-      }
-    ],
-    process: [
-      ['Masa', `${fill.mass} g`],
-      ['Poduszka', `${fill.actualCushion} mm`],
-      ['Ciśn. maks. / limit', `${fill.maxPressure} / ${fill.pressureLimit} bar`],
-      ['Prędkość zad. / rzecz.', `${fill.commandedSpeed} / ${fill.actualSpeed} mm/s`],
-      ['Temp. masy', `${fill.meltTemperature} °C`],
-      ['Czas cyklu', `${fill.cycleTime} s`]
-    ]
+    niedolanie: scale(100 - sink.finalFill, 0, 1.5, 25),
+    zapadniecia: scale(sink.sinkDepth, 0.005, 0.035, 0.3),
+    wyplywy: scale(flash.openingForce * 1.1 / fz, 0.9, 1.0, 1.6),
+    przypalenia: scale(burn.dieselRatio, 0.85, 1.0, 1.8),
+    smugi_przypalone: scale(burn.localMeltTemp, 256, 265, 285),
+    wahania: scale(1 - valve.valveQuality / 100, 0, 0.2, 1)
   }
 }
 
-function level(pct) {
-  if (pct <= 10) return 'ok'
+// Wady bez modelu fizycznego: krzywe wpływu ze starego panelu, znormalizowane tak,
+// by receptura wzorcowa dawała 0% (kierunek i siła zmian bez zmian).
+const CURVE_BASE = {}
+function curveRisk(id, values) {
+  if (!(id in CURVE_BASE)) CURVE_BASE[id] = riskFor(DEFECTS, id, { ...defaultValues(), ...BASE_START }).defectPct
+  const base = CURVE_BASE[id]
+  const raw = riskFor(DEFECTS, id, values).defectPct
+  return Math.round(clamp01((raw - base) / Math.max(1, 100 - base)) * 100)
+}
+
+function allDefectRisks(values) {
+  const model = modelRisks(values)
+  return Object.entries(DEFECTS).map(([id, d]) => ({
+    id,
+    label: d.label,
+    simple: !(id in model),
+    pct: id in model ? Math.round(model[id] * 100) : curveRisk(id, values)
+  }))
+}
+
+function levelClass(pct) {
+  if (pct <= 12) return 'ok'
   if (pct <= 35) return 'warn'
   return 'bad'
 }
 
 export default function DefectImpactPanel({ onClose, modeSwitch }) {
-  const [values, setValues] = useState(() => ({ ...defaultValues(), ...BASE_START }))
-  const [source, setSource] = useState('base')
-  const [prev, setPrev] = useState(null) // wskaźniki sprzed ostatniej zmiany (▲ gorzej / ▼ lepiej)
+  const initial = () => ({ ...defaultValues(), ...BASE_START })
+  const [values, setValues] = useState(initial)
+  const [prev, setPrev] = useState(null)
 
-  const data = useMemo(() => indicators(values), [values])
+  const rows = useMemo(() => allDefectRisks(values), [values])
 
   function handleChange(id, raw) {
-    setPrev(data)
+    setPrev(rows)
     setValues({ ...values, [id]: raw === '' ? '' : Number(raw) })
   }
-
-  function loadSource(key) {
-    setSource(key)
-    setPrev(null)
-    setValues(key === 'base' ? { ...defaultValues(), ...BASE_START } : exerciseValues(key, defaultValues))
-  }
-
-  const exerciseOptions = [...VISIBLE_EXERCISE_KEYS].map(k => ({ key: k, label: EXERCISES[k].label }))
 
   return (
     <div className="console">
@@ -118,72 +109,70 @@ export default function DefectImpactPanel({ onClose, modeSwitch }) {
         </div>
         {modeSwitch}
         <div className="c-top-exercise">
-          <select className="c-select mono" value={source} onChange={e => loadSource(e.target.value)} aria-label="Nastawy wyjściowe">
-            <option value="base">Receptura wzorcowa (proces OK)</option>
-            {exerciseOptions.map(o => <option key={o.key} value={o.key}>Start: {o.label}</option>)}
-          </select>
+          <span className="c-muted">
+            Tryb swobodnej analizy – ustawiaj dowolne wartości parametrów i obserwuj, jak zmienia się ryzyko każdej wady.
+            Bez licznika czasu, bez losowania.
+          </span>
         </div>
+        <button type="button" className="c-btn c-btn--ghost" onClick={() => { setPrev(null); setValues(initial()) }}>↺ Receptura wzorcowa</button>
         <button type="button" className="c-btn c-btn--primary" onClick={onClose}>Zamknij</button>
       </header>
 
       <main className="c-main">
-        <div className="c-grid">
-          <div className="c-col">
+        <section className="c-card">
+          <div className="c-card-head">
+            <div>
+              <h2>Panel wpływu wad</h2>
+              <span className="c-card-sub mono">PARAMETRY MASZYNY</span>
+            </div>
+          </div>
+          <div className="c-schematic">
+            <MachineSchematic values={values} />
+          </div>
+          <div className="i-groups">
             {GROUPS.map(g => (
-              <section className="c-card" key={g.title}>
-                <div className="c-card-head"><h3 className="mono">{g.title.toUpperCase()}</h3></div>
+              <div key={g.title} className="i-group">
+                <h3 className="mono">{g.title.toUpperCase()}</h3>
                 <div className="i-grid">
                   {g.ids.map(id => (
                     <ParamStepper key={id} param={P[id]} label={LABELS[id] || P[id].label.replace(/^\w+ – /, '')}
                       value={values[id]} onChange={handleChange} compact />
                   ))}
                 </div>
-              </section>
+              </div>
             ))}
           </div>
+        </section>
 
-          <aside className="c-col c-col--right">
-            <section className="c-card">
-              <div className="c-card-head">
-                <div>
-                  <h2>Wpływ na wady</h2>
-                  <span className="c-card-sub mono">TEN SAM SILNIK CO W ĆWICZENIACH · ▲ GORZEJ ▼ LEPIEJ</span>
-                </div>
-              </div>
-              <div className="i-list">
-                {data.list.map(d => {
-                  const before = prev?.list.find(x => x.id === d.id)?.pct
-                  const delta = before === undefined ? 0 : d.pct - before
-                  return (
-                    <div className="i-row" key={d.id}>
-                      <div className="i-row-head">
-                        <strong>{d.label}</strong>
-                        <span className={`i-pct mono ${level(d.pct)}`}>
-                          {d.pct}%
-                          {delta !== 0 && <em className={delta > 0 ? 'up' : 'down'}>{delta > 0 ? '▲' : '▼'}{Math.abs(delta)}</em>}
-                        </span>
-                      </div>
-                      <div className="i-track"><div className={`i-fill ${level(d.pct)}`} style={{ width: `${d.pct}%` }} /></div>
-                      <small className="mono c-muted">{d.detail}</small>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-
-            <section className="c-card c-times">
-              <div className="c-card-head"><h3 className="mono">DANE PROCESU</h3></div>
-              <dl className="mono">
-                {data.process.map(([k, v]) => [<dt key={k}>{k}</dt>, <dd key={k + 'v'}>{v}</dd>])}
-              </dl>
-            </section>
-
-            <div className="c-note c-note--trainer mono">
-              <strong>TYLKO DLA TRENERA</strong>
-              <p>Wskaźniki procentowe są wewnętrzne i nie są pokazywane kursantom. Pozostałe wady (przypalenia, pęcherze, smugi…) nie mają jeszcze modelu w pilotażu.</p>
+        <section className="c-card">
+          <div className="c-card-head">
+            <div>
+              <h2>Wpływ bieżących parametrów na ryzyko wad</h2>
+              <span className="c-card-sub mono">
+                PORUSZAJ PARAMETRAMI – PASKI AKTUALIZUJĄ SIĘ NA BIEŻĄCO I POKAZUJĄ, CZY ZMIANA IDZIE W DOBRĄ (▼), CZY W ZŁĄ (▲) STRONĘ DLA KAŻDEJ Z WAD
+              </span>
             </div>
-          </aside>
-        </div>
+          </div>
+          <div className="i-list">
+            {rows.map(r => {
+              const before = prev?.find(x => x.id === r.id)?.pct
+              const delta = before === undefined ? 0 : r.pct - before
+              return (
+                <div className="i-row i-row--line" key={r.id}>
+                  <span className="i-label" title={r.label}>{r.simple && <span className="c-muted">* </span>}{r.label}</span>
+                  <div className="i-track"><div className={`i-fill ${levelClass(r.pct)}`} style={{ width: `${r.pct}%` }} /></div>
+                  <span className={`i-pct mono ${levelClass(r.pct)}`}>{r.pct}%</span>
+                  <span className="i-delta mono">
+                    {delta !== 0 && <em className={delta > 0 ? 'up' : 'down'}>{delta > 0 ? '▲' : '▼'}{Math.abs(delta)}</em>}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <small className="mono c-muted i-footnote">
+            * model uproszczony (krzywe wpływu) – wada nie ma jeszcze ćwiczeń; pozostałe wady liczone są tymi samymi modelami co ćwiczenia.
+          </small>
+        </section>
       </main>
     </div>
   )

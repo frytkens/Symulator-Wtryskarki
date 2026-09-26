@@ -591,3 +591,15 @@
 .c-mode-item:hover { background: var(--c-card-2); }
 .c-mode-item.is-active { background: var(--c-accent-soft); color: var(--c-accent); }
 .c-mode-lock { font-size: 10px; color: var(--c-muted); white-space: nowrap; }
+.i-groups { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.i-group h3 { font-size: 11px; color: var(--c-muted); margin: 0 0 8px; }
+.i-row--line { display: grid; grid-template-columns: minmax(200px, 360px) 1fr 56px 56px; align-items: center; gap: 14px; }
+.i-row--line .i-track { margin: 0; }
+.i-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.i-row--line .i-pct { text-align: right; }
+.i-delta { font-size: 12px; }
+.i-delta em { font-style: normal; font-weight: 700; }
+.i-delta em.up { color: var(--c-ng); }
+.i-delta em.down { color: var(--c-accent); }
+@media (max-width: 700px) { .i-row--line { grid-template-columns: 1fr 48px 48px; } .i-row--line .i-track { grid-column: 1 / -1; order: 5; } }
+.i-footnote { display: block; margin-top: 14px; }

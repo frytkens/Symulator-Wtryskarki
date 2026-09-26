@@ -47,10 +47,6 @@ export const STREAK_LEVELS = [
   'Brązowe przebarwienia i smugi na całym detalu'
 ]
 
-export function levelCaptions(result) {
-  return result?.model === 'sinkMark' ? SINK_LEVELS : VISUAL_LEVELS
-}
-
 // Obraz i podpis detalu – zawsze zgodne z oceną cyklu (standard, pkt 14).
 export function partViewFor(result, wada) {
   if (!result) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }

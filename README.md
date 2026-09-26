@@ -1,48 +1,37 @@
 # Symulator wtryskarki
 
-Aplikacja React (Vite) — panel parametrów wtryskarki nałożony na schemat, z licznikiem czasu do znalezienia poprawnych ustawień.
+Przeglądarkowy symulator szkoleniowy (React + Vite) do nauki diagnozowania wad wyprasek.
+Kursant wybiera wadę i ćwiczenie, czyta zgłoszenie operatora, zmienia nastawy maszyny
+i uruchamia kolejne cykle, aż uzyska poprawną wypraskę. Rozwiązanie jest ujawniane dopiero po zaliczeniu.
 
-## Uruchomienie lokalne
+## Uruchomienie
 
 ```bash
 npm install
-npm run dev
+npm run dev      # http://localhost:5173
+npm run build    # build produkcyjny w dist/
 ```
 
-Aplikacja wystartuje pod `http://localhost:5173`.
+## Tryby (przełącznik w górnym pasku)
 
-## Build produkcyjny
+- **Tryb szkoleniowy** – ćwiczenia dla kursanta.
+- **Panel wpływu wad** – swobodna analiza: dowolne nastawy i ryzyko każdej wady (bez wpływu na ćwiczenia).
+- **Administrator – macierz parametrów** – wartości startowe i okna zaliczenia wszystkich ćwiczeń.
 
-```bash
-npm run build
-npm run preview
-```
-
-## Publikacja na Vercel
-
-Najprościej przez GitHub:
-
-1. Wrzuć ten folder jako repozytorium na GitHub (`git init`, `git add .`, `git commit -m "init"`, `git push`).
-2. Wejdź na [vercel.com](https://vercel.com), zaloguj się, kliknij **Add New → Project**.
-3. Wybierz repozytorium — Vercel sam rozpozna, że to projekt Vite (Framework Preset: Vite, Build Command: `npm run build`, Output Directory: `dist`).
-4. Kliknij **Deploy**.
-
-Albo przez CLI, bez GitHuba:
-
-```bash
-npm install -g vercel
-vercel
-```
-
-i postępuj zgodnie z pytaniami w terminalu (pierwsze uruchomienie poprosi o zalogowanie się).
+Tryby trenera wymagają kodu (`ADMIN_CODE` w `src/data/adminOverrides.js`).
 
 ## Struktura
 
-- `src/data/params.js` — lista wszystkich parametrów (pozycja na schemacie, zakres, krzywa wpływu, waga)
-- `src/components/ParamField.jsx` — pojedyncze pole nałożone na obrazek
-- `src/App.jsx` — logika: stan parametrów, obliczanie jakości/wady, timer
-- `public/schemat.png` — Twój obrazek schematu wtryskarki
+- `src/App.jsx` – konsola maszyny, przebieg ćwiczenia, ocena cyklu
+- `src/components/console/` – elementy interfejsu (schemat, nastawy, panel wpływu, macierz administratora)
+- `src/data/params.js` – parametry, rejestr wad, silnik symulacji (`simulateTrainingCycle`, `evaluateCycle`, wady uboczne)
+- `src/data/exercises/` – ćwiczenia pogrupowane według wad; `index.js` – rejestr i lista widocznych ćwiczeń (`VISIBLE_EXERCISE_KEYS`)
+- `src/data/studentView.js` – co widzi kursant (objawy, obrazy detalu) – bez ujawniania przyczyny
+- `knowledge/` – materiał źródłowy PPS ENGEL
+- `public/defects/` – zdjęcia wad
 
-## Dodanie kolejnej wady
+## Dodanie ćwiczenia
 
-W `src/data/params.js` dodaj nową krzywą w `CURVES` i oznacz inne parametry jako `active: true` z odpowiednią `weight` — reszta (obliczenia, paski jakości) działa automatycznie.
+Dodaj wpis w pliku wady w `src/data/exercises/` (start, `rootParam`, `processModel`, zgłoszenie operatora,
+rozwiązanie, dodatkowe wskazania), a klucz dopisz do `VISIBLE_EXERCISE_KEYS`.
+Poprawność sprawdzisz w macierzy administratora (okno zaliczenia modelu, stan startowy).

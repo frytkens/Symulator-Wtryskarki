@@ -1,7 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import ParamField from './components/ParamField.jsx'
-import DefectManager from './components/DefectManager.jsx'
-import DefectsPanel from './components/DefectsPanel.jsx'
 import ParamStepper from './components/console/ParamStepper.jsx'
 import MachineSchematic from './components/console/MachineSchematic.jsx'
 import AdminMatrix from './components/console/AdminMatrix.jsx'
@@ -11,7 +8,7 @@ import { ADMIN_CODE, rootWindowCheck } from './data/adminOverrides.js'
 import SpeedBar from './components/console/SpeedBar.jsx'
 import { LABELS } from './data/labels.js'
 import {
-  PARAMS, CLAMP_PARAMS, ALL_PARAMS, MACHINE,
+  ALL_PARAMS, MACHINE,
   BUILTIN_DEFECTS_ALL as BUILTIN_DEFECTS, TRAINER_NOTES_ALL as BUILTIN_TRAINER_NOTES,
   computeResult, evaluateCycle, simulateTrainingCycle
 } from './data/params.js'
@@ -20,7 +17,6 @@ import { partViewFor, studentReasons, studentWarnings } from './data/studentView
 import './console.css'
 
 const CYCLE_SECONDS = 5
-const STORAGE_KEY = 'wtryskarka_custom_wady'
 const P = Object.fromEntries(ALL_PARAMS.map(p => [p.id, p]))
 
 // Krótkie etykiety kafli – symbol parametru jest pokazywany osobno, więc nie powtarzamy go w nazwie.
@@ -62,25 +58,6 @@ function trendMeta(trend) {
   }
 }
 
-function loadCustomWady() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { defects: {}, trainerNotes: {} }
-    const parsed = JSON.parse(raw)
-    return { defects: parsed.defects || {}, trainerNotes: parsed.trainerNotes || {} }
-  } catch {
-    return { defects: {}, trainerNotes: {} }
-  }
-}
-
-function saveCustomWady(customDefects, customTrainerNotes) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ defects: customDefects, trainerNotes: customTrainerNotes }))
-  } catch {
-    // localStorage niedostępny (np. tryb prywatny) – po prostu nie zapisujemy trwale
-  }
-}
-
 // Wzór na siłę zwarcia + wartości z ostatniego cyklu (pokazywane po zaliczeniu).
 function ClampFormula({ formula, result }) {
   return (
@@ -104,16 +81,13 @@ const PANEL_LINKS = [
 ]
 
 export default function App() {
-  const [view, setView] = useState('sim') // 'sim' | 'panel' | 'admin' | 'adminMatrix'
+  const [view, setView] = useState('sim') // 'sim' | 'impact' | 'adminMatrix'
   const [adminPrompt, setAdminPrompt] = useState(null) // null | { code, error }
   // Sesja administratora (po podaniu kodu): panel wpływu wad i wartości modelu.
   // Kursant bez kodu nie ma do nich dostępu (brak skrótów w adresie strony).
   const [adminSession, setAdminSession] = useState(false)
-  const [customDefects, setCustomDefects] = useState(() => loadCustomWady().defects)
-  const [customTrainerNotes, setCustomTrainerNotes] = useState(() => loadCustomWady().trainerNotes)
-  const defects = { ...BUILTIN_DEFECTS, ...customDefects }
-  const trainerNotesAll = { ...BUILTIN_TRAINER_NOTES, ...customTrainerNotes }
-  const customIds = new Set(Object.keys(customDefects))
+  const defects = BUILTIN_DEFECTS
+  const trainerNotesAll = BUILTIN_TRAINER_NOTES
 
   const [values, setValues] = useState(defaultValues)
   const valuesRef = useRef(values)
@@ -146,49 +120,6 @@ export default function App() {
   const exerciseMachine = activeExercise?.machine || MACHINE
   const controlsLocked = !running || cycling || solved
 
-  // ---------------------------------------------------------------
-  // Zarządzanie wadami (tryb trenera)
-  // ---------------------------------------------------------------
-  function handleSaveDefect(id, defectObj, trainerNotes) {
-    const nextDefects = { ...customDefects, [id]: defectObj }
-    setCustomDefects(nextDefects)
-    let nextNotes = customTrainerNotes
-    if (trainerNotes.length > 0) {
-      nextNotes = { ...customTrainerNotes, [id]: trainerNotes }
-      setCustomTrainerNotes(nextNotes)
-    }
-    saveCustomWady(nextDefects, nextNotes)
-  }
-
-  function handleDeleteDefect(id) {
-    const nextDefects = { ...customDefects }
-    delete nextDefects[id]
-    const nextNotes = { ...customTrainerNotes }
-    delete nextNotes[id]
-    setCustomDefects(nextDefects)
-    setCustomTrainerNotes(nextNotes)
-    saveCustomWady(nextDefects, nextNotes)
-  }
-
-  function handleImportDefects(importedDefects, importedTrainerNotes) {
-    const nextDefects = { ...customDefects }
-    const nextNotes = { ...customTrainerNotes }
-    let addedCount = 0
-    const skipped = []
-    Object.entries(importedDefects).forEach(([id, defectObj]) => {
-      if (defects[id]) {
-        skipped.push(id)
-        return
-      }
-      nextDefects[id] = defectObj
-      if (importedTrainerNotes[id]) nextNotes[id] = importedTrainerNotes[id]
-      addedCount++
-    })
-    setCustomDefects(nextDefects)
-    setCustomTrainerNotes(nextNotes)
-    saveCustomWady(nextDefects, nextNotes)
-    return { addedCount, skipped }
-  }
 
   // ---------------------------------------------------------------
   // Timer ćwiczenia
@@ -349,7 +280,7 @@ export default function App() {
       setRunning(false)
       setSolved(true)
     }
-  }, [activeExercise, exerciseMachine, wada, customDefects])
+  }, [activeExercise, exerciseMachine, wada])
 
   const handleStartCycle = useCallback(() => {
     if (cycling || !running || solved) return
@@ -381,21 +312,6 @@ export default function App() {
     setView(target)
   }
 
-  if (view === 'admin') {
-    return (
-      <DefectManager
-        defects={defects}
-        customIds={customIds}
-        trainerNotes={trainerNotesAll}
-        onSave={handleSaveDefect}
-        onDelete={handleDeleteDefect}
-        onImport={handleImportDefects}
-        onUseInSimulator={() => setView('sim')}
-        onClose={() => setView('sim')}
-      />
-    )
-  }
-
   if (view === 'adminMatrix') {
     return <AdminMatrix onClose={() => setView('sim')} onOpenImpact={() => setView('impact')}
       modeSwitch={<ModeSwitch current="adminMatrix" onSelect={selectMode} unlocked={adminSession} />} />
@@ -404,32 +320,6 @@ export default function App() {
   if (view === 'impact') {
     return <DefectImpactPanel onClose={() => setView('sim')}
       modeSwitch={<ModeSwitch current="impact" onSelect={selectMode} unlocked={adminSession} />} />
-  }
-
-  if (view === 'panel') {
-    return (
-      <div className="page">
-        <div className="page-header-row">
-          <div>
-            <h1>Panel wpływu wad</h1>
-            <p className="sub">Tryb trenera – swobodna analiza wpływu parametrów na ryzyko wszystkich wad.</p>
-          </div>
-          <button className="btn" onClick={() => setView('sim')}>← wróć do symulatora</button>
-          <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
-        </div>
-        <div className="machine-layout">
-          <div className="diagram-wrap diagram-wrap--clamp">
-            <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
-            {CLAMP_PARAMS.map(p => <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />)}
-          </div>
-          <div className="diagram-wrap diagram-wrap--injection">
-            <img src="/schemat.png" alt="Schemat wtryskarki" />
-            {PARAMS.map(p => <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />)}
-          </div>
-        </div>
-        <DefectsPanel defects={defects} values={values} />
-      </div>
-    )
   }
 
   // ---------------------------------------------------------------
@@ -489,7 +379,6 @@ export default function App() {
         {adminSession && (
           <div className="c-top-trainer">
             <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('impact')}>Panel wpływu</button>
-            <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('admin')}>Wady</button>
             <button type="button" className="c-btn c-btn--ghost" onClick={() => setAdminSession(false)}>Wyloguj</button>
           </div>
         )}
