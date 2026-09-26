@@ -576,3 +576,18 @@
 .i-pct.warn { color: var(--c-warn); }
 .i-fill.bad { background: var(--c-ng); }
 .i-pct.bad { color: var(--c-ng); }
+
+/* ---------------- przełącznik trybów ---------------- */
+.c-mode { position: relative; }
+.c-mode-btn { display: flex; align-items: center; gap: 10px; cursor: pointer; text-align: left; font-weight: 700; }
+.c-mode-btn:hover:not(:disabled) { border-color: #555a63; }
+.c-mode-btn:disabled { cursor: not-allowed; opacity: .6; }
+.c-mode-caret { font-size: 12px; }
+.c-mode-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 50; min-width: 300px;
+  background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: 6px;
+  box-shadow: 0 16px 40px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 2px; }
+.c-mode-item { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: none; border: 0;
+  color: var(--c-text); font: 500 14px var(--c-sans); padding: 10px 12px; border-radius: 7px; cursor: pointer; text-align: left; }
+.c-mode-item:hover { background: var(--c-card-2); }
+.c-mode-item.is-active { background: var(--c-accent-soft); color: var(--c-accent); }
+.c-mode-lock { font-size: 10px; color: var(--c-muted); white-space: nowrap; }

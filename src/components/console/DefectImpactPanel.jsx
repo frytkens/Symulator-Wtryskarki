@@ -72,7 +72,7 @@ function level(pct) {
   return 'bad'
 }
 
-export default function DefectImpactPanel({ onClose }) {
+export default function DefectImpactPanel({ onClose, modeSwitch }) {
   const [values, setValues] = useState(() => ({ ...defaultValues(), ...BASE_START }))
   const [source, setSource] = useState('base')
   const [prev, setPrev] = useState(null) // wskaźniki sprzed ostatniej zmiany (▲ gorzej / ▼ lepiej)
@@ -102,7 +102,7 @@ export default function DefectImpactPanel({ onClose }) {
           </div>
           <span className="c-brand-sub mono">● SYMULATOR WTRYSKARKI</span>
         </div>
-        <span className="c-chip c-chip--admin mono">PANEL<br />WPŁYWU WAD</span>
+        {modeSwitch}
         <div className="c-top-exercise">
           <select className="c-select mono" value={source} onChange={e => loadSource(e.target.value)} aria-label="Nastawy wyjściowe">
             <option value="base">Receptura wzorcowa (proces OK)</option>

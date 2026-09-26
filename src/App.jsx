@@ -6,6 +6,7 @@ import ParamStepper from './components/console/ParamStepper.jsx'
 import MachineSchematic from './components/console/MachineSchematic.jsx'
 import AdminMatrix from './components/console/AdminMatrix.jsx'
 import DefectImpactPanel from './components/console/DefectImpactPanel.jsx'
+import ModeSwitch, { MODES } from './components/console/ModeSwitch.jsx'
 import { ADMIN_CODE, rootWindowCheck } from './data/adminOverrides.js'
 import SpeedBar from './components/console/SpeedBar.jsx'
 import { LABELS } from './data/labels.js'
@@ -364,6 +365,17 @@ export default function App() {
   // ---------------------------------------------------------------
   // Widoki trenera
   // ---------------------------------------------------------------
+  // Wybór trybu z górnego paska; tryby trenera wymagają kodu (raz na sesję).
+  function selectMode(target) {
+    const mode = MODES.find(m => m.view === target)
+    if (mode?.locked && !adminSession) {
+      setAdminPrompt({ code: '', error: false, target })
+      return
+    }
+    stopCycle()
+    setView(target)
+  }
+
   if (view === 'admin') {
     return (
       <DefectManager
@@ -380,11 +392,13 @@ export default function App() {
   }
 
   if (view === 'adminMatrix') {
-    return <AdminMatrix onClose={() => setView('sim')} onOpenImpact={() => setView('impact')} />
+    return <AdminMatrix onClose={() => setView('sim')} onOpenImpact={() => setView('impact')}
+      modeSwitch={<ModeSwitch current="adminMatrix" onSelect={selectMode} unlocked={adminSession} />} />
   }
 
   if (view === 'impact') {
-    return <DefectImpactPanel onClose={() => setView('adminMatrix')} />
+    return <DefectImpactPanel onClose={() => setView('sim')}
+      modeSwitch={<ModeSwitch current="impact" onSelect={selectMode} unlocked={adminSession} />} />
   }
 
   if (view === 'panel') {
@@ -450,7 +464,7 @@ export default function App() {
           </div>
           <span className="c-brand-sub mono">● SYMULATOR WTRYSKARKI</span>
         </div>
-        <span className="c-chip c-chip--mode mono">TRYB<br />SZKOLENIOWY</span>
+        <ModeSwitch current="sim" onSelect={selectMode} unlocked={adminSession} disabled={cycling} />
         <div className="c-top-exercise">
           {activeExercise ? (
             <>
@@ -507,7 +521,7 @@ export default function App() {
           )}
 
           <button type="button" className="c-admin-link mono" disabled={cycling}
-            onClick={() => setAdminPrompt({ code: '', error: false })}>⚙ Administrator</button>
+            onClick={() => selectMode('adminMatrix')}>⚙ Administrator</button>
 
           <div className="c-side-foot mono">
             <div><span>CZAS CYKLU</span><strong className="c-accent">{r ? `${round(r.cycleTime, 1)} s` : '—'}</strong></div>
@@ -887,7 +901,7 @@ export default function App() {
                 setAdminPrompt(null)
                 setAdminSession(true)
                 stopCycle()
-                setView('adminMatrix')
+                setView(adminPrompt.target || 'adminMatrix')
               } else {
                 setAdminPrompt({ ...adminPrompt, error: true })
               }
@@ -896,7 +910,7 @@ export default function App() {
             <h2>Podaj kod dostępu</h2>
             <input className="c-code-input mono" type="password" autoFocus value={adminPrompt.code}
               aria-label="Kod administratora"
-              onChange={e => setAdminPrompt({ code: e.target.value, error: false })} />
+              onChange={e => setAdminPrompt({ ...adminPrompt, code: e.target.value, error: false })} />
             {adminPrompt.error && <p className="c-code-error">Nieprawidłowy kod.</p>}
             <div className="c-modal-actions">
               <button type="button" className="c-btn c-btn--ghost" onClick={() => setAdminPrompt(null)}>Anuluj</button>

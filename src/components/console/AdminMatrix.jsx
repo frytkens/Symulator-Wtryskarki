@@ -37,7 +37,7 @@ function passWindow(key, overrides, withAdmin) {
   return { text: `${hits[0]}–${hits[hits.length - 1]} ${p.unit}`, hits }
 }
 
-export default function AdminMatrix({ onClose, onOpenImpact }) {
+export default function AdminMatrix({ onClose, onOpenImpact, modeSwitch }) {
   const [overrides, setOverrides] = useState(loadOverrides)
 
   const groups = useMemo(() => Object.keys(DEFECTS)
@@ -95,7 +95,7 @@ export default function AdminMatrix({ onClose, onOpenImpact }) {
           </div>
           <span className="c-brand-sub mono">● SYMULATOR WTRYSKARKI</span>
         </div>
-        <span className="c-chip c-chip--admin mono">TRYB<br />ADMINISTRATORA</span>
+        {modeSwitch}
         <div className="c-top-exercise">
           <span className="c-muted">Macierz parametrów – wartości startowe i okna zaliczenia. Zmiany zapisują się w tej przeglądarce.</span>
         </div>
