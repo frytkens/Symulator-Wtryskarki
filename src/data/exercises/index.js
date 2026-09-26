@@ -2,12 +2,14 @@ import { NIEDOLANIE_EXERCISES } from './niedolanie.js'
 import { PRZYPALENIA_EXERCISES } from './przypalenia.js'
 import { WYPLYWY_EXERCISES } from './wyplywy.js'
 import { WAHANIA_EXERCISES } from './wahania.js'
+import { ZAPADNIECIA_EXERCISES } from './zapadniecia.js'
 
 export const EXERCISES = {
   ...NIEDOLANIE_EXERCISES,
   ...PRZYPALENIA_EXERCISES,
   ...WYPLYWY_EXERCISES,
-  ...WAHANIA_EXERCISES
+  ...WAHANIA_EXERCISES,
+  ...ZAPADNIECIA_EXERCISES
 }
 
 // Scenariusze pozostają w kodzie i mogą być używane przez panel trenera,
@@ -15,7 +17,10 @@ export const EXERCISES = {
 export const VISIBLE_EXERCISE_KEYS = new Set([
   'niedolanie',
   'niedolanie_N012',
-  'niedolanie_N013'
+  'niedolanie_N013',
+  'zapadniecia_Z01',
+  'zapadniecia_Z02',
+  'zapadniecia_Z03'
 ])
 
 export function exerciseValues(key, defaultValuesFn) {

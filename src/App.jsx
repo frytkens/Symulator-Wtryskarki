@@ -12,7 +12,7 @@ import {
   computeResult, evaluateCycle, simulateTrainingCycle
 } from './data/params.js'
 import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
-import { VISUAL_LEVELS, studentReasons, studentWarnings } from './data/studentView.js'
+import { levelCaptions, studentReasons, studentWarnings } from './data/studentView.js'
 import './console.css'
 
 const CYCLE_SECONDS = 5
@@ -395,12 +395,15 @@ export default function App() {
     : 'OCZEKUJE'
   const vpStart = activeExercise ? exerciseValues(exerciseKey, defaultValues).Pp : null
   const speedIds = ['Pw5', 'Pw4', 'Pw3', 'Pw2', 'Pw1']
+  const sinkExercise = activeExercise?.processModel?.type === 'sinkMark'
 
   const partView = (() => {
     if (!r) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
-    if (r.lateSwitch) return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: 'Wypływka / przepakowanie na linii podziału' }
-    if (r.visualLevel === 0) return { kind: 'ok', caption: VISUAL_LEVELS[0] }
-    return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: VISUAL_LEVELS[r.visualLevel], level: r.visualLevel }
+    if (r.lateSwitch || r.flash) return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: 'Wypływka / przepakowanie na linii podziału' }
+    const captions = levelCaptions(r)
+    if (r.visualLevel === 0) return { kind: 'ok', caption: captions[0] }
+    const src = r.model === 'sinkMark' && r.finalFill < 98.5 ? '/defects/niedolanie.jpg' : `/defects/${wada}.jpg`
+    return { kind: 'defect', src, caption: captions[r.visualLevel], level: r.visualLevel }
   })()
 
   const verdict = !r ? null
@@ -667,6 +670,13 @@ export default function App() {
                         <small className="mono">Referencja: {r.referenceMass} g</small>
                       </>}
                     </div>
+                    {sinkExercise && (
+                      <div className="c-metric c-metric--wide">
+                        <span className="mono">GŁĘBOKOŚĆ ZAPADNIĘCIA (POMIAR)</span>
+                        <strong className={r ? (r.sinkOk ? 'is-ok' : 'is-ng') : ''}>{r ? `${r.sinkDepth} mm` : '—'}</strong>
+                        {r && <small className="mono">Tolerancja wyrobu: ≤ 0.03 mm</small>}
+                      </div>
+                    )}
                     <div className="c-metric">
                       <span className="mono">PODUSZKA</span>
                       <strong>{r ? `${r.actualCushion} mm` : '—'}</strong>
@@ -732,6 +742,7 @@ export default function App() {
                     <div className="c-note c-note--trainer mono">
                       <strong>WARTOŚCI MODELU (TRENER)</strong>
                       <p>Wypełnienie przy V/P {r.fillAtVP}% · końcowe {r.finalFill}% · wada {r.defectPct}%</p>
+                      {r.model === 'sinkMark' && <p>Kompensacja skurczu {r.compensation}% · zamarzanie przewężki {r.gateFreezeTime} s · efektywny docisk {r.effectiveHoldTime} s</p>}
                       {r.valveScenario && <p>Zawór: sprawność {r.valveEfficiency}% · strata skoku {r.valveStrokeLoss} mm</p>}
                       <p>{r.evaluationReasons.join(' • ') || 'brak powodów NG'}</p>
                     </div>
@@ -768,7 +779,7 @@ export default function App() {
                   <table className="c-log mono">
                     <thead>
                       <tr>
-                        <th>Cykl</th><th>Wynik</th><th>Masa</th><th>Poduszka</th><th>Ciśn. maks.</th>
+                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
                         <th>t wtrysku</th><th>t cyklu</th><th>Zmiany nastaw</th>
                       </tr>
                     </thead>
@@ -783,6 +794,7 @@ export default function App() {
                             {e.trend !== 'first' && <span className={`c-trend ${trendMeta(e.trend).cls}`}>{trendMeta(e.trend).arrow}</span>}
                           </td>
                           <td>{e.mass} g</td>
+                          {sinkExercise && <td>{e.sinkDepth} mm</td>}
                           <td>{e.actualCushion} mm</td>
                           <td>{e.maxPressure} bar</td>
                           <td>{e.injectionTime} s</td>
@@ -893,6 +905,7 @@ export default function App() {
                   Wypełnienie przy V/P {resultModal.fillAtVP}% · końcowe {resultModal.finalFill}% ·
                   ruch po V/P {resultModal.holdingStroke} mm · poduszka {resultModal.actualCushion} mm
                   {resultModal.valveScenario && ` · sprawność zaworu ${resultModal.valveEfficiency}%`}
+                  {resultModal.model === 'sinkMark' && ` · kompensacja skurczu ${resultModal.compensation}% · zamarzanie przewężki ${resultModal.gateFreezeTime} s`}
                 </p>
               </div>
             )}

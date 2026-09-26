@@ -384,7 +384,7 @@ export const TRAINER_NOTES = {
     'Sprawdź ugięcie formy pod ciśnieniem'
   ],
   zapadniecia: [
-    'Sprawdź długość i stabilność poduszki (min. 5 mm)',
+    'Sprawdź poduszkę – ślimak nie może dojść do przodu w fazie docisku',
     'Zapady przy wlewku czy z dala od niego? – inne działania naprawcze',
     'Sprawdź zawór zwrotny i cylinder',
     'Sprawdź wymiarowanie przewężki – czy nie zamarza za wcześnie'
@@ -440,7 +440,7 @@ function clamp01(x) { return Math.max(0, Math.min(1, x)) }
 function roundTo(x, d = 1) { const f = 10 ** d; return Math.round(x * f) / f }
 
 export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
-  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve'].includes(scenario.processModel.type)) return null
+  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark'].includes(scenario.processModel.type)) return null
 
   const model = scenario.processModel
   const doz = Number(values.doz) || 0
@@ -512,15 +512,16 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
 
   // Docisk może uzupełnić maksymalnie określoną część objętości i tylko do pełnego detalu.
   const doseReserve = Math.max(0, doz - requiredStroke)
+  // fillHoldTime / fillReserveMin: model zapadnięć dopełnia gniazdo szybko, na początku docisku.
   const packingPotential = clamp01((Number(values.Pd) || 0) / model.referenceHoldingPressure) *
-    clamp01((Number(values.Td) || 0) / model.gateFreezeTime) *
-    clamp01(doseReserve / model.minimumCushion) *
+    clamp01((Number(values.Td) || 0) / (model.fillHoldTime ?? model.gateFreezeTime)) *
+    clamp01(doseReserve / (model.fillReserveMin ?? model.minimumCushion)) *
     (valveScenario ? (0.75 + 0.25 * valveQuality) : 1)
   const packableGap = Math.min(model.maxPackingFill, Math.max(0, 1 - fillAtVP))
   const packingFill = packableGap * packingPotential
   const finalFill = clamp01(fillAtVP + packingFill)
-  const holdingStroke = requiredStroke * packingFill
-  const actualCushion = Math.max(0, vp - holdingStroke)
+  let holdingStroke = requiredStroke * packingFill
+  let actualCushion = Math.max(0, vp - holdingStroke)
 
   // Ciśnienie rośnie wraz z końcem napełniania, a po niemal pełnym
   // wypełnieniu przed V/P pojawia się stromy pik ciśnienia.
@@ -537,7 +538,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   const earlySwitch = fillAtVP < model.vpFillMin
   const holdingWorked = holdingStroke >= model.minimumHoldingStroke
   const overpackRisk = lateSwitch || pressureLimited
-  const processWindowOk =
+  let processWindowOk =
     fillAtVP >= model.vpFillMin &&
     fillAtVP <= model.vpFillMax &&
     finalFill >= finalFillMin &&
@@ -552,8 +553,8 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   // W scenariuszu wada docelowa obejmuje nie tylko brak materiału, ale także
   // nieprawidłowe okno V/P — kompletny detal z przełączeniem po 100% nadal jest NG.
   const processPenalty = processWindowOk ? 0 : (lateSwitch ? Math.max(25, lateSwitchRisk) : 0)
-  const defectPct = Math.max(shortShotRisk, processPenalty)
-  const mass = roundTo(model.referenceMass * finalFill, 1)
+  let defectPct = Math.max(shortShotRisk, processPenalty)
+  let mass = roundTo(model.referenceMass * finalFill, 1)
 
   const injectionTime = actualSpeed > 0 ? velocityStroke / actualSpeed : 0
   const missingStrokeAtVP = Math.max(0, requiredStroke - effectiveFillStroke)
@@ -578,6 +579,67 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   else if (finalFill < 0.93) visualLevel = 2
   else if (finalFill < model.goodFill) visualLevel = 1
 
+  // -------------------------------------------------------------
+  // Model zapadnięć: kompensacja skurczu objętościowego dociskiem.
+  // Skuteczność = (Pd / ciśnienie referencyjne) × (efektywny czas docisku / czas
+  // zamarzania przewężki), ograniczona drogą, którą ślimak ma jeszcze do przodu.
+  // Za mało → zapadnięcie; za dużo → przepakowanie i wypływka na linii podziału.
+  // -------------------------------------------------------------
+  let sink = null
+  if (model.type === 'sinkMark') {
+    const pd = Number(values.Pd) || 0
+    const td = Number(values.Td) || 0
+    const fz = Number(values.Fz) || 0
+    const gateFreeze = model.gateFreezeTime *
+      (1 + (moldTemp - model.referenceMoldTemp) * model.freezePerMoldDegree) *
+      (1 + (tm - model.referenceMeltTemp) * model.freezePerMeltDegree)
+    // Przewężka nie zamarza skokowo – po nominalnym czasie docisk działa jeszcze częściowo.
+    const effectiveHold = td <= gateFreeze ? td : gateFreeze + (td - gateFreeze) * model.postFreezeFactor
+    const timeFactor = effectiveHold / gateFreeze
+    const pressureFactor = pd / model.packReferencePressure
+    const shrinkage = model.shrinkage * (1 + (tm - model.referenceMeltTemp) * model.shrinkPerMeltDegree)
+    const neededStroke = requiredStroke * shrinkage
+    const requestedComp = pressureFactor * timeFactor
+    const availableStroke = Math.max(0, vp - holdingStroke)
+    const compStroke = Math.min(neededStroke * requestedComp, availableStroke)
+    const compensation = neededStroke > 0 ? compStroke / neededStroke : 0
+    const screwBottomed = neededStroke * requestedComp > availableStroke + 0.01
+
+    const flashLimit = model.flashCompensation * (fz / model.referenceClampForce)
+    const flash = compensation > flashLimit
+    const sinkDepth = roundTo(Math.max(0, 1 - compensation) * model.maxSinkDepth, 2)
+    const sinkOk = sinkDepth <= model.sinkTolerance
+
+    holdingStroke += compStroke
+    actualCushion = Math.max(0, vp - holdingStroke)
+    mass = roundTo(model.referenceMass * finalFill *
+      (1 - shrinkage * Math.max(0, 1 - compensation) + shrinkage * model.overpackMassFactor * Math.max(0, compensation - 1)), 1)
+
+    let sinkLevel = 0
+    if (sinkDepth > 0.25) sinkLevel = 4
+    else if (sinkDepth > 0.15) sinkLevel = 3
+    else if (sinkDepth > 0.08) sinkLevel = 2
+    else if (!sinkOk) sinkLevel = 1
+    if (visualLevel === 0) visualLevel = sinkLevel
+
+    const sinkRisk = Math.round(clamp01((sinkDepth - model.sinkTolerance) / (model.maxSinkDepth - model.sinkTolerance)) * 100)
+    const flashRisk = flash ? Math.max(25, Math.round(clamp01((compensation - flashLimit) / 0.3) * 100)) : 0
+    defectPct = Math.max(shortShotRisk, sinkRisk, flashRisk)
+
+    processWindowOk =
+      fillAtVP >= model.vpFillMin && fillAtVP <= model.vpFillMax &&
+      finalFill >= finalFillMin && !pressureLimited &&
+      sinkOk && !flash && actualCushion >= model.minimumCushion
+
+    sink = {
+      sinkDepth, sinkOk, sinkLevel, flash, screwBottomed,
+      compensation: roundTo(compensation * 100, 0),
+      gateFreezeTime: roundTo(gateFreeze, 1),
+      effectiveHoldTime: roundTo(effectiveHold, 1),
+      compensationStroke: roundTo(compStroke, 2)
+    }
+  }
+
   const warnings = []
   if (pressureLimited) warnings.push('Osiągnięto graniczne ciśnienie wtrysku.')
   if (actualCushion < model.minimumCushion) warnings.push(`Poduszka poniżej ${model.minimumCushion} mm.`)
@@ -586,6 +648,8 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   if (!holdingWorked && finalFill >= finalFillMin) warnings.push('Brak rzeczywistego ruchu ślimaka po V/P — docisk nie wykonuje pracy.')
   if (valveScenario && !valveParameterOk) warnings.push('Zawór zwrotny nie zamyka się powtarzalnie — strata dawki i wahania masy.')
   if (tm > model.maximumMeltTemp) warnings.push('Temperatura masy przekracza bezpieczne okno materiału.')
+  if (sink?.flash) warnings.push('Przepakowanie gniazda — wypływka na linii podziału.')
+  if (sink?.screwBottomed) warnings.push('Ślimak doszedł do przodu w fazie docisku — brak materiału do kompensacji skurczu.')
 
   return {
     model: model.type,
@@ -639,6 +703,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     productivity,
     meltTemperature: roundTo(tm, 1),
     moldTemperature: roundTo(moldTemp, 1),
+    ...(sink || {}),
     warnings
   }
 }
@@ -740,6 +805,8 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (training?.lateSwitch)         reasons.push(`V/P za późno: ${training.fillAtVP}% wypełnienia przed dociskiem`)
   if (training && !training.holdingWorked) reasons.push(`Docisk nie wykonał wymaganej pracy: ruch ślimaka ${training.holdingStroke} mm`)
   if (training?.pressureLimited)    reasons.push(`Osiągnięto limit ciśnienia ${training.pressureLimit} bar`)
+  if (training?.sinkDepth !== undefined && !training.sinkOk) reasons.push(`Zapadnięcie ${training.sinkDepth} mm – kompensacja skurczu ${training.compensation}%`)
+  if (training?.flash)              reasons.push(`Przepakowanie/wypływka – kompensacja skurczu ${training.compensation}%`)
   if (training?.valveScenario && !training.valveParameterOk) reasons.push(`Niestabilne zamykanie zaworu: sprawność ${training.valveEfficiency}%, strata skoku ${training.valveStrokeLoss} mm`)
 
   return {
