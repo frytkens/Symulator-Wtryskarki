@@ -35,7 +35,7 @@ export const DIESEL_LEVELS = [
   'Detal bez przypaleń',
   'Lekkie przebarwienie na końcu drogi płynięcia',
   'Wyraźne czarne przypalenie w narożu',
-  'Przypalenie z niedolaną krawędzią',
+  'Silne, rozlane przypalenie w narożu',
   'Rozległe przypalenia na końcu drogi płynięcia'
 ]
 
@@ -56,13 +56,13 @@ export function partViewFor(result, wada) {
   if (!result) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
   const sinkish = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark'
   if (result.diesel) return { kind: 'defect', src: '/defects/przypalenia.jpg', caption: DIESEL_LEVELS[result.dieselLevel] }
-  if (result.streaks) return { kind: 'defect', src: '/defects/przypalenia.jpg', caption: STREAK_LEVELS[result.streakLevel] }
+  if (result.streaks) return { kind: 'defect', src: '/defects/smugi_przypalone.jpg', caption: STREAK_LEVELS[result.streakLevel] }
   if (result.flash || result.lateSwitch) {
     const lvl = result.flashLevel || 2
     return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: FLASH_LEVELS[lvl] }
   }
   if (result.visualLevel === 0) {
-    const okCaption = result.model === 'burnMark' ? 'Detal bez przypaleń i smug' : result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
+    const okCaption = result.model === 'burnMark' ? (wada === 'smugi_przypalone' ? STREAK_LEVELS[0] : DIESEL_LEVELS[0]) : result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
     return { kind: 'ok', caption: okCaption }
   }
   if (result.finalFill < 98.5) return { kind: 'defect', src: '/defects/niedolanie.jpg', caption: VISUAL_LEVELS[Math.max(1, result.visualLevel)] }

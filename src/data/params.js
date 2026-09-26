@@ -260,12 +260,21 @@ export const DEFECTS = {
   },
 
   przypalenia: {
-    label: 'Przypalenia – efekt diesla',
+    label: 'Efekt Diesla – przypalenia od sprężonego powietrza',
     params: [
       { id: 'Pw5', weight: 30, dir: -1, x50: 20,  k: 8,  note: 'Sprężone powietrze w końcowej fazie napełniania' },
       { id: 'Tm',  weight: 30, dir: -1, x50: 270, k: 12, note: 'Degradacja termiczna' },
       { id: 'Fz',  weight: 20, dir: -1, x50: 185, k: 12, note: 'Przepakowana forma = zgniecione odpowietrzenie' },
       { id: 'Prz', weight: 20, dir: -1, x50: 28,  k: 8,  note: 'Nadmierne ścinanie przy dozowaniu' }
+    ]
+  },
+
+  smugi_przypalone: {
+    label: 'Smugi przypalonego materiału – termiczna degradacja stopu',
+    params: [
+      { id: 'Tm',  weight: 40, dir: -1, x50: 265, k: 8,   note: 'Temperatura masy powyżej okna materiału' },
+      { id: 'Ob',  weight: 30, dir: -1, x50: 0.95, k: 0.15, note: 'Ścinanie przy dozowaniu – obroty ślimaka' },
+      { id: 'Prz', weight: 30, dir: -1, x50: 28,  k: 8,   note: 'Ścinanie przy dozowaniu – przeciwciśnienie' }
     ]
   },
 
@@ -375,6 +384,12 @@ export const TRAINER_NOTES = {
     'Czy błąd pojawił się nagle w produkcji? → zabrudzone odpowietrzenia',
     'Sprawdź możliwość redukcji siły zwarcia (max ok. 20% przepakowania)',
     'Sprawdź profil prędkości – zwolnienie na końcu napełniania (Pw5)'
+  ],
+  smugi_przypalone: [
+    'Czy temperatura masy jest w zakresie przetwórstwa? → cylinder, obroty, przeciwciśnienie',
+    'Sprawdź czas przebywania stopu (wielkość agregatu, czas cyklu, regranulat)',
+    'Smugi przy dolocie? → profil prędkości wolno–szybko, gorące kanały, ostre przejścia',
+    'Sprawdź suszenie materiału – zbyt długie lub zbyt gorące też degraduje tworzywo'
   ],
   wyplywy: [
     'Sprawdź stan powierzchni uszczelniających (płaszczyzna podziału)',

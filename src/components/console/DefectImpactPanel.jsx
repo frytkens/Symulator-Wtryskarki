@@ -29,8 +29,8 @@ function indicators(values) {
   const sink = simulateTrainingCycle(values, EXERCISES.zapadniecia_Z01.machine, { processModel: SINK_MODEL })
   const flash = simulateTrainingCycle(values, EXERCISES.wyplywy_W04.machine, EXERCISES.wyplywy_W04)
   // W panelu wszystkie źródła ścinania działają w pełni (bez ograniczeń scenariusza).
-  const burnModel = EXERCISES.przypalenia_P01.processModel
-  const burnA = simulateTrainingCycle(values, EXERCISES.przypalenia_P01.machine,
+  const burnModel = EXERCISES.przypalenia_D01.processModel
+  const burnA = simulateTrainingCycle(values, EXERCISES.przypalenia_D01.machine,
     { processModel: { ...burnModel, burn: { ...burnModel.burn, helperCap: Infinity } } })
   const valveA = simulateTrainingCycle(values, EXERCISES.niedolanie_N012.machine, EXERCISES.niedolanie_N012)
   // Wskaźnik zaworu z modelu N-02 (dekompresja + parametry pomocnicze: V1, T1/T2, przeciwciśnienie).
@@ -54,9 +54,14 @@ function indicators(values) {
         detail: `siła rozwierająca ${flash.openingForce} kN / zwarcie ${fz} kN${flash.flash ? ` · grat ${flash.burr} mm` : ''}`
       },
       {
-        id: 'przypalenia', label: 'Przypalenia (Diesel / smugi)',
-        pct: Math.round(Math.max(clamp01((burnA.dieselRatio - 0.6) / 0.8), clamp01((burnA.localMeltTemp - 250) / 25)) * 100),
-        detail: `V5 ${burnA.endSpeed} mm/s / odpowietrzenie ${Math.round(burnA.ventFactor * 100)}% · temp. lokalna ${burnA.localMeltTemp} °C`
+        id: 'diesel', label: 'Efekt Diesla',
+        pct: Math.round(clamp01((burnA.dieselRatio - 0.6) / 0.8) * 100),
+        detail: `V5 ${burnA.endSpeed} mm/s · przepustowość odpowietrzeń ${Math.round(burnA.ventFactor * 100)}%`
+      },
+      {
+        id: 'smugi', label: 'Smugi przypalonego materiału',
+        pct: Math.round(clamp01((burnA.localMeltTemp - 250) / 25) * 100),
+        detail: `lokalna temperatura stopu ${burnA.localMeltTemp} °C (próg 265 °C)`
       },
       {
         id: 'wahania', label: 'Wahania masy (zawór zwrotny)',

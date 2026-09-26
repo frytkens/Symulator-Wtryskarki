@@ -9,7 +9,7 @@ import { BASE_START, MACHINE, MATERIAL, PASS } from './zapadniecia.js'
 import { FLASH_MODEL } from './wyplywy.js'
 
 // -------------------------------------------------------------
-// Model przypaleń P-01…P-04 (typ 'burnMark'): silnik wypływek (napełnianie, docisk,
+// Model przypaleń D-01, D-02 (efekt Diesla) i SP-01, SP-02 (smugi przypalonego materiału), typ 'burnMark': silnik wypływek (napełnianie, docisk,
 // siła rozwierająca) + model burn:
 //  • efekt Diesla: V5 rzeczywista > przepustowość odpowietrzeń (110 mm/s);
 //    Fz powyżej ok. 120% siły wymaganej zgniata odpowietrzenia (PPS str. 119),
@@ -33,6 +33,7 @@ const burnModel = root => ({
 })
 
 const BURN_GOAL = 'Zdiagnozuj przyczynę przypaleń i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
+const STREAK_GOAL = 'Zdiagnozuj przyczynę smug na powierzchni i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
 
 const DIESEL_OTHER = {
   source: 'PPS ENGEL, „Efekt diesla/przypalenia”, str. 116–119',
@@ -95,11 +96,11 @@ export const PRZYPALENIA_EXERCISES = {
     ]
   },
 
-  przypalenia_P01: {
+  przypalenia_D01: {
     id: 'przypalenia',
-    code: 'P-01',
+    code: 'D-01',
     rootParam: 'Pw5', // parametr-przyczyna (tryb administratora)
-    label: 'P-01 · Przypalenia — przypadek 1',
+    label: 'D-01 · Efekt Diesla — przypadek 1',
     learningGoal: BURN_GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
@@ -121,11 +122,11 @@ export const PRZYPALENIA_EXERCISES = {
     ]
   },
 
-  przypalenia_P02: {
+  przypalenia_D02: {
     id: 'przypalenia',
-    code: 'P-02',
+    code: 'D-02',
     rootParam: 'Fz', // parametr-przyczyna (tryb administratora)
-    label: 'P-02 · Przypalenia — przypadek 2',
+    label: 'D-02 · Efekt Diesla — przypadek 2',
     learningGoal: BURN_GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
@@ -147,12 +148,12 @@ export const PRZYPALENIA_EXERCISES = {
     ]
   },
 
-  przypalenia_P03: {
-    id: 'przypalenia',
-    code: 'P-03',
+  smugi_SP01: {
+    id: 'smugi_przypalone',
+    code: 'SP-01',
     rootParam: 'Ob', // parametr-przyczyna (tryb administratora)
-    label: 'P-03 · Przypalenia — przypadek 3',
-    learningGoal: BURN_GOAL,
+    label: 'SP-01 · Smugi przypalonego materiału — przypadek 1',
+    learningGoal: STREAK_GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
       message: 'Na powierzchni widać brązowe i srebrzyste smugi, zaczynające się przy dolocie. Materiał był suszony zgodnie z instrukcją. Czas dozowania jest wyraźnie krótszy niż zwykle.',
@@ -172,12 +173,12 @@ export const PRZYPALENIA_EXERCISES = {
     ]
   },
 
-  przypalenia_P04: {
-    id: 'przypalenia',
-    code: 'P-04',
+  smugi_SP02: {
+    id: 'smugi_przypalone',
+    code: 'SP-02',
     rootParam: 'Prz', // parametr-przyczyna (tryb administratora)
-    label: 'P-04 · Przypalenia — przypadek 4',
-    learningGoal: BURN_GOAL,
+    label: 'SP-02 · Smugi przypalonego materiału — przypadek 2',
+    learningGoal: STREAK_GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
       message: 'Na powierzchni widać brązowe i srebrzyste smugi, zaczynające się przy dolocie. Materiał był suszony zgodnie z instrukcją. Czas dozowania jest dłuższy niż zwykle.',
