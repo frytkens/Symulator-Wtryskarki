@@ -3,7 +3,7 @@
 //
 // Wspólny model 'sinkMark' (src/data/params.js → simulateTrainingCycle).
 // Punkt pracy OK dla bazowej receptury (V/P 12 mm, dawka 60 mm, Fz 175 t):
-//   Pd 70–90 bar przy Td 7 s,  Td 6–10 s przy Pd 80 bar.
+//   Pd 70–90 bar przy Td 7 s,  Td 6–10 s przy Pd 80 bar, poduszka ≥ 5 mm.
 // Za mało → zapadnięcie; za dużo (Pd ≥ 95 bar lub Td > 10 s) → wypływka.
 // =============================================================
 
@@ -48,7 +48,7 @@ const SINK_MODEL = {
   flashCompensation: 1.2,
   referenceClampForce: 175,
   overpackMassFactor: 0.3,
-  minimumCushion: 3,
+  minimumCushion: 5, // PPS: poduszka min. 5 mm
   // okno V/P i ciśnienie – jak w N-01
   vpFillMin: 0.94,
   vpFillMax: 0.98,
@@ -69,7 +69,7 @@ const SINK_MODEL = {
 
 const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
 const MATERIAL = { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 }
-const PASS = { target: 12, others: 60, cushion: 3, requireProcessWindow: true }
+const PASS = { target: 12, others: 60, cushion: 5, requireProcessWindow: true }
 const GOAL = 'Zdiagnozuj przyczynę zapadnięć i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
 
 export const ZAPADNIECIA_EXERCISES = {
@@ -131,7 +131,7 @@ export const ZAPADNIECIA_EXERCISES = {
       message: 'Detal ma zapadnięcia nad żebrami. Ustawiacz podnosił już ciśnienie docisku, ale wada nie zniknęła. Detal jest wypełniony, każda sztuka wygląda podobnie.',
       facts: ['Zapadnięcia nad żebrami', 'Podniesienie ciśnienia docisku nie pomogło', 'Detal kompletny']
     },
-    solutionSummary: 'Przyczyną była za mała dawka: poduszka spadała do 0 mm i ślimak dochodził do przodu w fazie docisku, więc docisk nie miał czym kompensować skurczu. Trzeba zwiększyć dawkę i przesunąć V/P o tyle samo (np. dozowanie 60 mm, V/P 12 mm), aby napełnianie się nie zmieniło, a poduszka wynosiła co najmniej 3 mm. Samo zwiększenie dawki bez przesunięcia V/P przepełnia gniazdo przed dociskiem i daje wypływkę.',
+    solutionSummary: 'Przyczyną była za mała dawka: poduszka spadała do 0 mm i ślimak dochodził do przodu w fazie docisku, więc docisk nie miał czym kompensować skurczu. Trzeba zwiększyć dawkę i przesunąć V/P o tyle samo (np. dozowanie 60 mm, V/P 12 mm), aby napełnianie się nie zmieniło, a poduszka wynosiła co najmniej 5 mm (wymóg PPS). Samo zwiększenie dawki bez przesunięcia V/P przepełnia gniazdo przed dociskiem i daje wypływkę.',
     machine: MACHINE,
     material: MATERIAL,
     start: { ...BASE_START, doz: 52, Pp: 4 },

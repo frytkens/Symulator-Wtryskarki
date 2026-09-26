@@ -43,7 +43,7 @@ export function studentReasons(result) {
   if (result.flash) reasons.push('Wypływka na linii podziału — gniazdo przepakowane')
   if (result.lateSwitch) reasons.push('Pik ciśnienia pod koniec wtrysku — ryzyko wypływki i przepakowania')
   if (result.pressureLimited) reasons.push(`Ciśnienie wtrysku doszło do limitu ${result.pressureLimit} bar`)
-  const minCushion = sinkModel ? 3 : 5
+  const minCushion = 5
   if (result.actualCushion !== undefined && result.actualCushion < minCushion) {
     reasons.push(`Poduszka ${result.actualCushion} mm — poniżej ${minCushion} mm`)
   }
