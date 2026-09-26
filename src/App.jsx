@@ -208,6 +208,11 @@ export default function App() {
 
   function handleUseInSimulator(id) {
     handleWadaChange(id)
+    setView('exercise-select')
+  }
+
+  function handleSelectExercise(key) {
+    handleExerciseChange(key)
     setView('sim')
   }
 
@@ -460,6 +465,31 @@ export default function App() {
     )
   }
 
+  if (view === 'exercise-select') {
+    return (
+      <div className="page">
+        <div className="page-header-row">
+          <div>
+            <h1>Niedolania</h1>
+            <p className="sub">Wybierz przypadek szkoleniowy. Zgłoszenie operatora pojawi się dopiero po otwarciu ćwiczenia.</p>
+          </div>
+          <button className="btn" onClick={() => setView('landing')}>← Wróć</button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, maxWidth: 1050, margin: '36px auto' }}>
+          {variants.map((exercise, index) => (
+            <button key={exercise.key} type="button" onClick={() => handleSelectExercise(exercise.key)}
+              style={{ minHeight: 180, padding: 24, border: '1px solid #cbd5e1', borderRadius: 16, background: '#fff', textAlign: 'left', cursor: 'pointer', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)' }}>
+              <span style={{ display: 'block', color: '#64748b', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>ĆWICZENIE {index + 1}</span>
+              <strong style={{ display: 'block', fontSize: 22, color: '#0f172a', marginBottom: 12 }}>{exercise.label}</strong>
+              <span style={{ color: '#475569' }}>Otwórz zgłoszenie operatora →</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   if (view === 'admin') {
     return (
       <DefectManager
@@ -526,18 +556,16 @@ export default function App() {
         <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
       </div>
 
-      {variants.length > 0 && (
-        <div className="exercise-picker">
-          {variants.map(v => (
-            <button
-              key={v.key}
-              className={`btn exercise-chip ${v.key === exerciseKey ? 'active' : ''}`}
-              onClick={() => handleExerciseChange(v.key)}
-              disabled={running || cycling}
-            >
-              {v.label}
-            </button>
-          ))}
+      {activeExercise && (
+        <div className="exercise-picker" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <strong>{activeExercise.label}</strong>
+          <button className="btn" type="button" onClick={() => {
+            setRunning(false)
+            clearInterval(countdownRef.current)
+            setCountdown(null)
+            setOperatorIntroOpen(false)
+            setView('exercise-select')
+          }}>← Wybór ćwiczenia</button>
         </div>
       )}
 
