@@ -17,7 +17,7 @@ export const NIEDOLANIE_EXERCISES = {
       message: 'Od kilku cykli detal nie wypełnia się do końca. Brak występuje stale w podobnym miejscu. Masa wypraski jest niższa niż zwykle, ale kolejne sztuki są do siebie podobne.',
       facts: ['Wada jest powtarzalna', 'Masa wypraski jest obniżona', 'Niedolanie występuje w podobnym miejscu']
     },
-    solutionSummary: 'Przyczyną było zbyt wczesne przełączenie V/P. Prawidłowe okno uzyskano przy 94–98% wypełnienia w chwili przełączenia.'
+    solutionSummary: 'Przyczyną było zbyt wczesne przełączenie V/P. Prawidłowe okno uzyskano przy 94–98% wypełnienia w chwili przełączenia.',
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
@@ -92,7 +92,7 @@ export const NIEDOLANIE_EXERCISES = {
       message: 'Co kilka cykli detal wychodzi niedolany. Raz brak jest niewielki, a innym razem wyraźnie większy. Masa wyprasek oraz poduszka zmieniają się, mimo że receptura nie była modyfikowana.',
       facts: ['Nasilenie niedolania zmienia się', 'Masa i poduszka nie są stabilne', 'Receptura nie była zmieniana']
     },
-    solutionSummary: 'Przyczyną była za mała dekompresja i niestabilne zamykanie zaworu zwrotnego. Prawidłowy zakres wynosi 5–7 mm, czyli około 10% dawki 60 mm.'
+    solutionSummary: 'Przyczyną była za mała dekompresja i niestabilne zamykanie zaworu zwrotnego. Prawidłowy zakres wynosi 5–7 mm, czyli około 10% dawki 60 mm.',
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
@@ -136,7 +136,7 @@ export const NIEDOLANIE_EXERCISES = {
       message: 'Początek fazy wtrysku nie jest powtarzalny. Detale mają różną masę, a od czasu do czasu pojawia się niedolanie. Nastawy nie były ostatnio zmieniane.',
       facts: ['Problem pojawia się na początku wtrysku', 'Masa detali jest zmienna', 'Niedolanie występuje okresowo']
     },
-    solutionSummary: 'Przyczyną była za mała pierwsza prędkość wtrysku i opóźnione zamykanie zaworu zwrotnego. Prawidłowy zakres pierwszego stopnia wynosi 20–40 mm/s.'
+    solutionSummary: 'Przyczyną była za mała pierwsza prędkość wtrysku i opóźnione zamykanie zaworu zwrotnego. Prawidłowy zakres pierwszego stopnia wynosi 20–40 mm/s.',
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
