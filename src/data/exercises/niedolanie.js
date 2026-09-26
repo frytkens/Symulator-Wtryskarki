@@ -234,7 +234,7 @@ export const NIEDOLANIE_EXERCISES = {
     },
     hints: [
       { after: 2, text: 'Pierwszy stopień wtrysku odpowiada za szybkie i powtarzalne zamknięcie zaworu zwrotnego.' },
-      { after: 4, when: (v) => v.Pw1 < 20, text: '4 mm/s to za mało. Sprawdź zakres 20–40 mm/s.' }
+      { after: 4, text: 'Oceniaj masę i poduszkę w kolejnych cyklach, nie w jednym. Która faza wtrysku decyduje o chwili zamknięcia zaworu?' }
     ]
   },
 

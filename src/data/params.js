@@ -628,15 +628,39 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     const pressureFactor = pd / model.packReferencePressure
     const shrinkage = model.shrinkage * (1 + (tm - model.referenceMeltTemp) * model.shrinkPerMeltDegree)
     const neededStroke = requiredStroke * shrinkage
-    const requestedComp = pressureFactor * timeFactor
+    let requestedComp = pressureFactor * timeFactor
+    // Przenoszenie ciśnienia docisku na obszary daleko od dolotu (model.transmission):
+    // cieplejszy stop/forma i wyższa prędkość dłużej utrzymują drożny przekrój. Ograniczone ±max.
+    let transmissionFactor = 1
+    if (model.transmission) {
+      const t = model.transmission
+      transmissionFactor = Math.min(1 + t.max, Math.max(1 - t.max,
+        1 + (tm - t.meltRef) * t.perMeltDegree +
+            (moldTemp - t.moldRef) * t.perMoldDegree +
+            (commandedSpeed - t.speedRef) * t.perSpeed))
+      requestedComp *= transmissionFactor
+    }
     const availableStroke = Math.max(0, vp - holdingStroke)
     const compStroke = Math.min(neededStroke * requestedComp, availableStroke)
     const compensation = neededStroke > 0 ? compStroke / neededStroke : 0
     const screwBottomed = neededStroke * requestedComp > availableStroke + 0.01
 
     const flashLimit = model.flashCompensation * (fz / model.referenceClampForce)
-    const flash = compensation > flashLimit
-    const sinkDepth = roundTo(Math.max(0, 1 - compensation) * model.maxSinkDepth, 2)
+    // Wypływka także przy bardzo wysokim ciśnieniu docisku, niezależnie od czasu (siła rozrywająca).
+    const flash = compensation > flashLimit ||
+      (model.flashHoldingPressure ? pd > model.flashHoldingPressure * (fz / model.referenceClampForce) : false)
+    // Zapadnięcia po wyformowaniu (model.postEject): za krótkie chłodzenie – zbyt cienka
+    // zastygła warstwa, gorący rdzeń kurczy się już poza formą.
+    let postEjectSink = 0
+    let coolingNeeded = null
+    if (model.postEject) {
+      const pe = model.postEject
+      coolingNeeded = Math.max(pe.coolingNeeded * pe.minFactor, Math.min(pe.coolingNeeded * pe.maxFactor,
+        pe.coolingNeeded * (1 + (moldTemp - pe.moldRef) * pe.perMoldDegree) * (1 + (tm - pe.meltRef) * pe.perMeltDegree)))
+      const tc = Number(values.Tc) || 0
+      postEjectSink = Math.max(0, (coolingNeeded - tc) / coolingNeeded) * pe.maxSink
+    }
+    const sinkDepth = roundTo(Math.max(0, 1 - compensation) * model.maxSinkDepth + postEjectSink, 2)
     const sinkOk = sinkDepth <= model.sinkTolerance
 
     holdingStroke += compStroke
@@ -662,6 +686,9 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
 
     sink = {
       sinkDepth, sinkOk, sinkLevel, flash, screwBottomed,
+      transmissionFactor: roundTo(transmissionFactor, 2),
+      coolingNeeded: coolingNeeded === null ? null : roundTo(coolingNeeded, 1),
+      postEjectSink: roundTo(postEjectSink, 2),
       compensation: roundTo(compensation * 100, 0),
       gateFreezeTime: roundTo(gateFreeze, 1),
       effectiveHoldTime: roundTo(effectiveHold, 1),

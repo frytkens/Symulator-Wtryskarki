@@ -3,7 +3,8 @@
 //
 // Wspólny model 'sinkMark' (src/data/params.js → simulateTrainingCycle).
 // Punkt pracy OK dla bazowej receptury (V/P 12 mm, dawka 60 mm, Fz 175 t):
-//   Pd 70–90 bar przy Td 7 s,  Td 6–10 s przy Pd 80 bar, poduszka ≥ 5 mm.
+//   Z-01 Pd 70–90 bar przy Td 7 s (zapady daleko od dolotu), Z-03 Tc ≥ ok. 23 s,
+//    Td 6–10 s przy Pd 80 bar, poduszka ≥ 5 mm.
 // Za mało → zapadnięcie; za dużo (Pd ≥ 95 bar lub Td > 10 s) → wypływka.
 // =============================================================
 
@@ -47,6 +48,7 @@ const SINK_MODEL = {
   maxSinkDepth: 0.35,
   sinkTolerance: 0.035,
   flashCompensation: 1.2,
+  flashHoldingPressure: 120, // bar przy Fz 175 t
   referenceClampForce: 175,
   overpackMassFactor: 0.3,
   minimumCushion: 5, // PPS: poduszka min. 5 mm
@@ -93,18 +95,36 @@ export const ZAPADNIECIA_EXERCISES = {
     learningGoal: GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
-      message: 'Na powierzchni nad żebrami widać wklęśnięcia. Detal jest wypełniony do końca. Każda sztuka wygląda tak samo, a masa jest trochę niższa niż zwykle.',
-      facts: ['Wklęśnięcia nad grubszymi miejscami', 'Detal kompletny', 'Wada powtarzalna']
+      message: 'Zapadnięcia widać na końcu detalu, daleko od punktu wtrysku. Przy dolocie powierzchnia jest w porządku. Detal jest wypełniony, każda sztuka wygląda tak samo, a masa jest trochę niższa niż zwykle.',
+      facts: ['Zapadnięcia daleko od punktu wtrysku', 'Przy dolocie brak wady', 'Detal kompletny, wada powtarzalna']
     },
-    solutionSummary: 'Przyczyną było za niskie ciśnienie docisku (40 bar). Docisk nie kompensował skurczu objętościowego grubych przekrojów. Prawidłowe okno przy czasie docisku 7 s to 70–90 bar. Od ok. 95 bar gniazdo jest przepakowane i pojawia się wypływka — dlatego nie podnosi się docisku „na zapas”.',
+    solutionSummary: 'Przyczyną było za niskie ciśnienie docisku (40 bar). Na końcu drogi płynięcia, daleko od dolotu, docisk nie kompensował skurczu. Prawidłowe okno przy czasie docisku 7 s to 70–90 bar. Od ok. 95 bar gniazdo jest przepakowane i pojawia się wypływka. Wyższa temperatura masy i formy oraz wyższa prędkość wtrysku pomagają przenieść docisk dalej, ale same nie usuwają wady.',
     machine: MACHINE,
     material: MATERIAL,
     start: { ...BASE_START, Pd: 40 },
     reference: { Pd: 80, Td: 7 },
     focus: ['Pd', 'Td', 'doz', 'Pp'],
     pass: PASS,
-    processModel: SINK_MODEL,
-    otherParameters: SINK_OTHER,
+    processModel: {
+      ...SINK_MODEL,
+      // zapady daleko od dolotu: kierunek wpływu temperatur i prędkości wg PPS str. 46 (+)
+      freezePerMoldDegree: 0,
+      freezePerMeltDegree: 0,
+      shrinkPerMeltDegree: 0,
+      transmission: { meltRef: 243, moldRef: 40, speedRef: 90, perMeltDegree: 0.006, perMoldDegree: 0.006, perSpeed: 0.001, max: 0.15 }
+    },
+    changeNotes: [
+      { params: ['Pp', 'doz'], text: 'Punktu przełączenia nie przesuwaj za mocno – sprawdź, czy jest ustawiony prawidłowo. Przesuwając go (lub zmieniając skok dozowania) przenosisz część fazy wtrysku w fazę docisku.' }
+    ],
+    otherParameters: {
+      source: 'PPS ENGEL, „Wciągi/zapady – działania naprawcze”, str. 45–46',
+      items: [
+        'Zapady z dala od dolotu lub w cienkościennym obszarze: zoptymalizować czas docisku i podnieść docisk (ew. chwilowo przeładować) – ryzyko zapływek, problemów z wyformowaniem i uszkodzenia formy.',
+        'Wyższa prędkość wtrysku (+) oraz temperatura masy i formy (+) pomagają przenieść ciśnienie dalej; po zmianie temperatur czas docisku zoptymalizować na nowo.',
+        'Poduszka min. 5 mm i stabilna.',
+        'Zapady przy dolocie lub w grubych miejscach wymagają odwrotnych działań: niższa temperatura formy, masy i prędkość.'
+      ]
+    },
     hints: [
       { after: 3, text: 'Obserwuj masę wypraski. Która faza cyklu uzupełnia materiał po napełnieniu gniazda?' },
       { after: 5, when: (v) => v.Td > 10, text: 'Wydłużanie docisku ponad zamarznięcie przewężki niewiele daje, a przedłuża cykl.' }
@@ -118,21 +138,39 @@ export const ZAPADNIECIA_EXERCISES = {
     learningGoal: GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
-      message: 'Nad grubszymi miejscami detalu pojawiają się zapadnięcia. Detal jest kompletny, wada powtarza się na każdej sztuce. Masa wyprasek jest niższa niż w poprzedniej partii.',
-      facts: ['Zapadnięcia nad grubszymi przekrojami', 'Detal kompletny', 'Masa obniżona i stabilna']
+      message: 'Zapadnięcia widać blisko punktu wtrysku, w grubszym miejscu przy dolocie. Dalej od dolotu powierzchnia jest w porządku. Detal jest kompletny, wada powtarza się na każdej sztuce, a masa jest niższa niż zwykle.',
+      facts: ['Zapadnięcia blisko punktu wtrysku', 'Dalej od dolotu brak wady', 'Detal kompletny, masa obniżona']
     },
-    solutionSummary: 'Przyczyną był za krótki czas docisku (2 s). Docisk kończył się, zanim przewężka zamarzła (ok. 6 s), więc skurcz nie był kompensowany. Prawidłowe okno przy 80 bar to 6–10 s — masa rośnie do ok. 6 s i potem się stabilizuje. Powyżej 10 s gniazdo jest przepakowane i pojawia się wypływka, a cykl niepotrzebnie się wydłuża.',
+    solutionSummary: 'Przyczyną był za krótki czas docisku (2 s). Przy dolocie nie potrzeba dużego ciśnienia – wystarczy uzupełniać materiał dłużej, aż przewężka zamarznie (ok. 6 s). Prawidłowe okno przy 80 bar to 6–10 s: masa rośnie do ok. 6 s i potem się stabilizuje. Powyżej 10 s gniazdo jest przepakowane i pojawia się wypływka, a cykl niepotrzebnie się wydłuża. Niższa temperatura masy i formy oraz niższa prędkość wtrysku pomagają, ale same nie usuwają wady.',
     machine: MACHINE,
     material: MATERIAL,
     start: { ...BASE_START, Td: 2 },
     reference: { Pd: 80, Td: 7 },
     focus: ['Td', 'Pd', 'doz', 'Pp'],
     pass: PASS,
-    processModel: SINK_MODEL,
-    otherParameters: SINK_OTHER,
+    processModel: {
+      ...SINK_MODEL,
+      // zapady przy dolocie / w grubym miejscu: kierunek wpływu wg PPS str. 45 (–)
+      freezePerMoldDegree: 0,
+      freezePerMeltDegree: 0,
+      shrinkPerMeltDegree: 0,
+      transmission: { meltRef: 243, moldRef: 40, speedRef: 90, perMeltDegree: -0.006, perMoldDegree: -0.006, perSpeed: -0.001, max: 0.15 }
+    },
+    changeNotes: [
+      { params: ['Pp', 'doz'], text: 'Punktu przełączenia nie przesuwaj za mocno – sprawdź, czy jest ustawiony prawidłowo. Przesuwając go (lub zmieniając skok dozowania) przenosisz część fazy wtrysku w fazę docisku.' }
+    ],
+    otherParameters: {
+      source: 'PPS ENGEL, „Wciągi/zapady – działania naprawcze”, str. 45',
+      items: [
+        'Zapady przy dolocie lub w grubym miejscu: najpierw zoptymalizować czas docisku (krzywa masy do zamarznięcia przewężki), potem ciśnienie docisku.',
+        'Niższa temperatura formy (–), masy (–) i prędkość wtrysku (–) pomagają; wyższe – pogarszają.',
+        'Poduszka min. 5 mm i stabilna.',
+        'Zapady daleko od dolotu wymagają odwrotnych działań: wyższa prędkość, temperatura masy i formy.'
+      ]
+    },
     hints: [
       { after: 3, text: 'Porównaj masę kolejnych cykli. Czy materiał jest jeszcze dociskany, gdy przewężka jest otwarta?' },
-      { after: 5, when: (v) => v.Pd > 90, text: 'Samo podnoszenie ciśnienia przy krótkim docisku grozi wypływką, a nie usuwa przyczyny.' }
+      { after: 5, when: (v) => v.Pd > 90, text: 'Przy dolocie nie potrzeba dużego ciśnienia. Samo podnoszenie docisku grozi wypływką.' }
     ]
   },
 
@@ -143,21 +181,31 @@ export const ZAPADNIECIA_EXERCISES = {
     learningGoal: GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
-      message: 'Detal ma zapadnięcia nad żebrami. Ustawiacz podnosił już ciśnienie docisku, ale wada nie zniknęła. Detal jest wypełniony, każda sztuka wygląda podobnie.',
-      facts: ['Zapadnięcia nad żebrami', 'Podniesienie ciśnienia docisku nie pomogło', 'Detal kompletny']
+      message: 'Zaraz po wyjęciu z formy detal wygląda dobrze. Po kilku minutach na stole nad żebrami pojawiają się zapadnięcia. Masa jest prawidłowa, a podniesienie docisku nic nie zmieniło.',
+      facts: ['Zapadnięcia pojawiają się po wyjęciu z formy', 'Masa prawidłowa', 'Podniesienie docisku nie pomogło']
     },
-    solutionSummary: 'Przyczyną była za mała dawka: poduszka spadała do 0 mm i ślimak dochodził do przodu w fazie docisku, więc docisk nie miał czym kompensować skurczu. Trzeba zwiększyć dawkę i przesunąć V/P o tyle samo (np. dozowanie 60 mm, V/P 12 mm), aby napełnianie się nie zmieniło, a poduszka wynosiła co najmniej 5 mm (wymóg PPS). Samo zwiększenie dawki bez przesunięcia V/P przepełnia gniazdo przed dociskiem i daje wypływkę.',
+    solutionSummary: 'Przyczyną był za krótki czas chłodzenia (12 s). Detal był wyjmowany z zbyt cienką zastygłą warstwą, a gorący rdzeń kurczył się już poza formą. Przy formie 40°C potrzeba ok. 25 s chłodzenia (zaliczenie od ok. 23 s). Docisk nie pomaga, bo gniazdo jest prawidłowo dopakowane – masa jest w normie. Wyższa temperatura formy wydłuża wymagany czas chłodzenia (ok. +20% na +10°C).',
     machine: MACHINE,
     material: MATERIAL,
-    start: { ...BASE_START, doz: 52, Pp: 4 },
-    reference: { doz: 60, Pp: 12, Pd: 80, Td: 7 },
-    focus: ['doz', 'Pp', 'Pd', 'Td'],
+    start: { ...BASE_START, Tc: 12 },
+    reference: { Tc: 25, Pd: 80, Td: 7 },
+    focus: ['Tc', 'Tr', 'Ts'],
     pass: PASS,
-    processModel: SINK_MODEL,
-    otherParameters: SINK_OTHER,
+    processModel: {
+      ...SINK_MODEL,
+      postEject: { coolingNeeded: 25, moldRef: 40, meltRef: 243, perMoldDegree: 0.02, perMeltDegree: 0.005, minFactor: 0.8, maxFactor: 1.5, maxSink: 0.3 }
+    },
+    otherParameters: {
+      source: 'PPS ENGEL, „Wciągi/zapady – działania naprawcze”, str. 47; „Nie całkowicie wypełnione detale”, str. 37',
+      items: [
+        'Zapady bezpośrednio po wyformowaniu: sprawdzić odpowietrzenie, wymiary dolotu, stan granulatu (wilgoć), nagromadzenie materiału i stosunek grubości ścianek do żeber.',
+        'Zapady pojawiające się później: wydłużyć czas chłodzenia.',
+        'Niższa temperatura formy i masy skraca wymagany czas chłodzenia; wyższa – wydłuża (+10°C formy ≈ +20% czasu chłodzenia).',
+        'Docisk i jego czas nie zastępują chłodzenia, gdy masa detalu jest prawidłowa.'
+      ]
+    },
     hints: [
-      { after: 3, text: 'Sprawdź poduszkę po docisku. Czy ślimak ma jeszcze drogę, żeby dociskać materiał?' },
-      { after: 5, when: (v) => v.doz > 52 && v.Pp < 6, text: 'Większa dawka przy tej samej pozycji V/P wydłuża też napełnianie. Co dzieje się z wypełnieniem przed dociskiem?' }
+      { after: 3, text: 'Masa jest w normie – materiału nie brakuje. Kiedy dokładnie pojawia się wada?' }
     ]
   }
 }
