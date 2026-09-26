@@ -158,6 +158,8 @@ export default function App() {
   // null = dla tej wady nie ma jeszcze zdefiniowanego ćwiczenia -> spadamy na stare losowanie.
   const [exerciseKey, setExerciseKey] = useState(() => exercisesForWada('niedolanie')[0]?.key ?? null)
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
+  const [operatorIntroOpen, setOperatorIntroOpen] = useState(false)
+  const [operatorReportOpen, setOperatorReportOpen] = useState(false)
   const lastLoggedValues = useRef(defaultValues())
   const lastDefectPct = useRef(computeResult(defects, wada, defaultValues(), MACHINE, null).defectPct)
   const cycleCounterRef = useRef(0)
@@ -167,11 +169,18 @@ export default function App() {
   const activeExercise = exerciseKey ? EXERCISES[exerciseKey] : null
   const exerciseMachine = activeExercise?.machine || MACHINE
   const variants = exercisesForWada(wada)
-  const activeIds = new Set(
-    (activeExercise?.focus || defects[wada].params.map(p => p.id))
-  )
+  // Widok kursanta nie podpowiada, które parametry są związane z rozwiązaniem.
+  // Pola focus pozostają w danych i mogą zostać użyte w przyszłym trybie trenera.
+  const activeIds = new Set()
 
   const [processResult, setProcessResult] = useState(null) // null dopóki żaden cykl się nie zakończył
+
+  useEffect(() => {
+    if (view === 'sim' && activeExercise?.operatorReport) {
+      setOperatorIntroOpen(true)
+      setOperatorReportOpen(false)
+    }
+  }, [view, exerciseKey])
 
   function handleSaveDefect(id, defectObj, trainerNotes) {
     const nextDefects = { ...customDefects, [id]: defectObj }
@@ -509,15 +518,11 @@ export default function App() {
         <div>
           <h1>Symulator wtryskarki – panel parametrów</h1>
           <p className="sub">
-            {activeExercise
-              ? 'Kliknij start, żeby wczytać nastawy tego ćwiczenia. Ustaw parametry, uruchom cykl przyciskiem'
-              : 'Kliknij start, żeby wylosować nieprawidłowe ustawienia. Ustaw parametry, uruchom cykl przyciskiem'}
-            {' '}„Start cyklu” i sprawdź wynik – tak jak na prawdziwej maszynie.
-            Niebieskie obramowanie = parametr ma wpływ na wybraną wadę.
+            Zapoznaj się ze zgłoszeniem operatora, przeanalizuj nastawy i wyniki procesu,
+            a następnie uruchamiaj kolejne cykle, aby znaleźć przyczynę problemu.
           </p>
         </div>
-        <button className="btn" onClick={() => setView('panel')}>🧪 Panel wpływu wad</button>
-        <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
+        {/* Panel wpływu i zarządzanie pozostają w kodzie, ale są ukryte w widoku kursanta. */}
         <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
       </div>
 
@@ -533,17 +538,33 @@ export default function App() {
               {v.label}
             </button>
           ))}
-          {activeExercise?.keyNumber && (
-            <span className="exercise-keynumber">
-              {activeExercise.keyNumber.label}: policz to sam, zanim zaczniesz
-              ({activeExercise.keyNumber.unit})
-            </span>
+        </div>
+      )}
+
+      {activeExercise?.operatorReport && (
+        <div style={{ margin: '12px 0', border: '1px solid #cbd5e1', borderRadius: 12, background: '#fff' }}>
+          <button type="button" onClick={() => setOperatorReportOpen(open => !open)}
+            style={{ width: '100%', padding: '12px 16px', border: 0, background: 'transparent', textAlign: 'left', fontWeight: 700, cursor: 'pointer' }}>
+            📋 Zgłoszenie operatora {operatorReportOpen ? '▲' : '▼'}
+            {!operatorReportOpen && <span style={{ marginLeft: 10, fontWeight: 400, color: '#64748b' }}>{activeExercise.operatorReport.message.slice(0, 90)}…</span>}
+          </button>
+          {operatorReportOpen && (
+            <div style={{ padding: '0 16px 14px' }}>
+              <p style={{ margin: '0 0 8px' }}>„{activeExercise.operatorReport.message}”</p>
+              <ul style={{ margin: 0, paddingLeft: 22 }}>{activeExercise.operatorReport.facts?.map(fact => <li key={fact}>{fact}</li>)}</ul>
+            </div>
           )}
         </div>
       )}
 
       {activeExercise?.learningGoal && (
-        <div className="exercise-hints"><strong>Cel ćwiczenia:</strong> {activeExercise.learningGoal}</div>
+        <div className="exercise-hints"><strong>Twoje zadanie:</strong> {activeExercise.learningGoal}</div>
+      )}
+
+      {solved && activeExercise?.solutionSummary && (
+        <div style={{ margin: '12px 0', padding: '14px 16px', borderRadius: 12, background: '#ecfdf3', border: '1px solid #86efac', color: '#166534' }}>
+          <strong>Wyjaśnienie:</strong> {activeExercise.solutionSummary}
+        </div>
       )}
 
       <div className="timer-bar">
@@ -787,6 +808,24 @@ export default function App() {
         ))}
       </div>
 
+      {operatorIntroOpen && activeExercise?.operatorReport && (
+        <div className="modal-backdrop">
+          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 650 }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>👷</div>
+            <div className="verdict-title" style={{ color: '#1e293b' }}>{activeExercise.operatorReport.title}</div>
+            <p style={{ fontSize: 18, lineHeight: 1.55, textAlign: 'left', background: '#f8fafc', padding: 16, borderRadius: 10 }}>„{activeExercise.operatorReport.message}”</p>
+            <div style={{ textAlign: 'left', margin: '14px 0' }}>
+              <strong>Zaobserwowane objawy:</strong>
+              <ul>{activeExercise.operatorReport.facts?.map(fact => <li key={fact}>{fact}</li>)}</ul>
+            </div>
+            <div style={{ textAlign: 'left', padding: 12, borderLeft: '4px solid #3b82f6', background: '#eff6ff', marginBottom: 18 }}>
+              <strong>Twoje zadanie:</strong> {activeExercise.learningGoal}
+            </div>
+            <button className="btn primary" onClick={() => setOperatorIntroOpen(false)}>Przejdź do maszyny</button>
+          </div>
+        </div>
+      )}
+
       {resultModal && (
         <div className="modal-backdrop" onClick={() => setResultModal(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
@@ -841,6 +880,11 @@ export default function App() {
               </div>
             )}
 
+            {resultModal.solved && activeExercise?.solutionSummary && (
+              <div style={{ textAlign: 'left', padding: 14, borderRadius: 10, background: '#ecfdf3', color: '#166534', marginBottom: 16 }}>
+                <strong>Diagnoza i rozwiązanie</strong><br />{activeExercise.solutionSummary}
+              </div>
+            )}
             <button className="btn primary" onClick={() => setResultModal(null)}>zamknij</button>
           </div>
         </div>

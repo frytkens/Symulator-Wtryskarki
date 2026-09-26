@@ -10,8 +10,14 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie: {
     id: 'niedolanie',
     code: 'N-01',
-    label: 'N-01 · Niedolanie: zbyt wczesne przełączenie V/P',
-    learningGoal: 'Rozpoznaj zbyt wczesne przełączenie V/P na podstawie niepełnego detalu, obniżonej masy i prawidłowej poduszki.',
+    label: 'N-01-1 · Niedolanie — przypadek 1',
+    learningGoal: 'Zdiagnozuj przyczynę niedolania i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.',
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Od kilku cykli detal nie wypełnia się do końca. Brak występuje stale w podobnym miejscu. Masa wypraski jest niższa niż zwykle, ale kolejne sztuki są do siebie podobne.',
+      facts: ['Wada jest powtarzalna', 'Masa wypraski jest obniżona', 'Niedolanie występuje w podobnym miejscu']
+    },
+    solutionSummary: 'Przyczyną było zbyt wczesne przełączenie V/P. Prawidłowe okno uzyskano przy 94–98% wypełnienia w chwili przełączenia.'
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
@@ -79,8 +85,14 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie_N012: {
     id: 'niedolanie',
     code: 'N-01-2',
-    label: 'N-01-2 · Niedolanie: za mała dekompresja i zawór zwrotny',
-    learningGoal: 'Rozpoznaj opóźnione zamykanie zaworu zwrotnego spowodowane za małą dekompresją. Ustaw około 10% drogi dozowania i potwierdź trzy stabilne cykle.',
+    label: 'N-01-2 · Niedolanie — przypadek 2',
+    learningGoal: 'Zdiagnozuj przyczynę niestabilnego niedolania i potwierdź poprawę trzema stabilnymi cyklami.',
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Co kilka cykli detal wychodzi niedolany. Raz brak jest niewielki, a innym razem wyraźnie większy. Masa wyprasek oraz poduszka zmieniają się, mimo że receptura nie była modyfikowana.',
+      facts: ['Nasilenie niedolania zmienia się', 'Masa i poduszka nie są stabilne', 'Receptura nie była zmieniana']
+    },
+    solutionSummary: 'Przyczyną była za mała dekompresja i niestabilne zamykanie zaworu zwrotnego. Prawidłowy zakres wynosi 5–7 mm, czyli około 10% dawki 60 mm.'
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
@@ -117,8 +129,14 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie_N013: {
     id: 'niedolanie',
     code: 'N-01-3',
-    label: 'N-01-3 · Niedolanie: za mała pierwsza prędkość i zawór zwrotny',
-    learningGoal: 'Rozpoznaj opóźnione zamykanie zaworu zwrotnego wskutek za małej pierwszej prędkości wtrysku. Ustaw 20–40 mm/s i potwierdź trzy stabilne cykle.',
+    label: 'N-01-3 · Niedolanie — przypadek 3',
+    learningGoal: 'Zdiagnozuj przyczynę niestabilnego początku wtrysku i potwierdź poprawę trzema stabilnymi cyklami.',
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Początek fazy wtrysku nie jest powtarzalny. Detale mają różną masę, a od czasu do czasu pojawia się niedolanie. Nastawy nie były ostatnio zmieniane.',
+      facts: ['Problem pojawia się na początku wtrysku', 'Masa detali jest zmienna', 'Niedolanie występuje okresowo']
+    },
+    solutionSummary: 'Przyczyną była za mała pierwsza prędkość wtrysku i opóźnione zamykanie zaworu zwrotnego. Prawidłowy zakres pierwszego stopnia wynosi 20–40 mm/s.'
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
