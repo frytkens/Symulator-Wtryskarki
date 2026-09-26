@@ -437,10 +437,14 @@ export default function App() {
     ? activeExercise.hints.filter(h => cycleLog.length >= h.after && (!h.when || h.when(values, exerciseMachine)))
     : []
 
+  const studentDefects = defects.niedolanie
+    ? { niedolanie: defects.niedolanie }
+    : {}
+
   if (view === 'landing') {
     return (
       <Landing
-        defects={defects}
+        defects={studentDefects}
         onStartTraining={handleUseInSimulator}
         onOpenPanel={handleOpenPanel}
       />
