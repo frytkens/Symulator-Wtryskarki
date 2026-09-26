@@ -302,7 +302,7 @@ export const DEFECTS = {
   },
 
   pecherze: {
-    label: 'Pęcherze / jamy skurczowe – puste przestrzenie wewnątrz detalu',
+    label: 'Pęcherze – pęcherzyki powietrza i jamy skurczowe',
     cushionSensitive: true,
     params: [
       // UWAGA DYDAKTYCZNA: x50 wyższe niż przy zapadach.
@@ -350,6 +350,14 @@ export const DEFECTS = {
         note: 'Wahania lepkości = zmienny wyciek wsteczny przez zawór' },
       { id: 'Pd',            weight: 8,  dir: +1, x50: 55, k: 16,
         note: 'Docisk domyka bilans masy po przełączeniu' }
+    ]
+  },
+
+  smugi_wilgoci: {
+    label: 'Smugi wilgoci – srebrne smugi w kształcie litery U',
+    params: [
+      { id: 'TR', weight: 50, dir: +1, x50: 35, k: 5, note: 'Za zimna trawersa = kondensacja wilgoci w strefie zasypu (PPS)' },
+      { id: 'Tr', weight: 50, dir: +1, x50: 18, k: 3, note: 'Forma poniżej punktu rosy = woda skrapla się na ściankach (PPS)' }
     ]
   },
 
@@ -405,6 +413,10 @@ export const TRAINER_NOTES = {
     'Sprawdź wymiarowanie przewężki – czy nie zamarza za wcześnie'
   ],
   pecherze: [
+    'Pęcherzyki widoczne w masie wytryśniętej w powietrze? – przeciwciśnienie i obroty',
+    'Wada pojawiła się nagle w produkcji? – zasyp granulatu i temperatura trawersy',
+    'Droga dozowania nie większa niż 3 x D ślimaka',
+    'Sprawdź odpowietrzenie formy i dekompresję (wielkość i prędkość)',
     'Sprawdź długość i stabilność poduszki (min. 5 mm)',
     'Pęcherze w grubościennym obszarze czy z dala? – jama vs powietrze',
     'Sprawdź wilgotność materiału (suszenie!)',
@@ -431,7 +443,14 @@ export const TRAINER_NOTES = {
     'Test bez rozbierania: kilka cykli BEZ DOCISKU – nieszczelny zawór ujawni się od razu',
     'Zużyty zawór/cylinder = wymiana. Tego nastawą nie naprawisz'
   ],
+  smugi_wilgoci: [
+    'Sprawdź suszenie materiału wg zaleceń producenta tworzywa',
+    'Sprawdź opakowanie, magazynowanie i czas przebywania granulatu w leju',
+    'Sprawdź temperaturę i szczelność trawersy',
+    'Wilgoć na powierzchni formy? – szczelność chłodzenia, temperatura formy, kurtyna suchego powietrza'
+  ],
   linie_laczenia: [
+    'Wysoka temperatura formy mocno redukuje linie, ale wydłuża chłodzenie (ok. 20% na 10 °C)',
     'Czy karb występuje w obszarze łączenia strug?',
     'Czy widać zmianę koloru/połysku w linii? – pigment, materiał',
     'Rozważ przeniesienie punktu wtrysku w obszar niewidoczny',
@@ -455,7 +474,7 @@ function clamp01(x) { return Math.max(0, Math.min(1, x)) }
 function roundTo(x, d = 1) { const f = 10 ** d; return Math.round(x * f) / f }
 
 export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
-  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark', 'flashMark', 'burnMark'].includes(scenario.processModel.type)) return null
+  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark', 'flashMark', 'burnMark', 'surfaceMark'].includes(scenario.processModel.type)) return null
 
   const model = scenario.processModel
   const doz = Number(values.doz) || 0
@@ -626,7 +645,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   // Za mało → zapadnięcie; za dużo → przepakowanie i wypływka na linii podziału.
   // -------------------------------------------------------------
   let sink = null
-  if (model.type === 'sinkMark' || model.type === 'flashMark' || model.type === 'burnMark') {
+  if (model.type === 'sinkMark' || model.type === 'flashMark' || model.type === 'burnMark' || model.type === 'surfaceMark') {
     const pd = Number(values.Pd) || 0
     const td = Number(values.Td) || 0
     const fz = Number(values.Fz) || 0
@@ -786,22 +805,92 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
       }
     }
 
+    // -------------------------------------------------------------
+    // Wady powierzchni (model.surface), wg PPS:
+    //  • linie łączenia (str. 104–108) – „temperatura czół” strug w miejscu spotkania
+    //    względem receptury wzorcowej: temperatura masy i formy (+), prędkość wtrysku,
+    //    ciśnienie docisku. Parametry niebędące przyczyną działają w ograniczonym zakresie (±cap);
+    //  • smugi/haczyki powietrza (str. 17–20) – dekompresja > 10% dawki zasysa powietrze
+    //    przez dyszę (smugi przy wlewku), za duża prędkość wtrysku porywa powietrze (haczyki);
+    //  • pęcherzyki powietrza (str. 52–54) – za małe przeciwciśnienie, droga dozowania > 3×D,
+    //    problemy z zaciąganiem granulatu (za gorąca trawersa), skrajna dekompresja;
+    //  • smugi wilgoci (str. 14–16) – za zimna trawersa, kondensacja wody na formie
+    //    poniżej punktu rosy.
+    // Wskaźniki są w umownych punktach: > threshold = wada, poziomy 1–4 jak w innych modelach.
+    // -------------------------------------------------------------
+    let surface = null
+    if (model.surface) {
+      const sm = model.surface
+      const cap = (x, c) => Math.max(-c, Math.min(c, x))
+      const lvl = idx => idx <= sm.threshold ? 0 : idx < 5 ? 1 : idx < 10 ? 2 : idx < 16 ? 3 : 4
+      const deko = dekoPct(values)
+      const tr = Number(values.TR) || 0
+      const prz = Number(values.Prz) || 0
+      const coldestMold = Math.min(Number(values.Tr) || 0, Number(values.Ts) || 0)
+
+      const w = sm.weld
+      const weldContrib = {
+        melt: (tm - w.meltRef) * w.perMelt,
+        mold: (moldTemp - w.moldRef) * w.perMold,
+        speed: (commandedSpeed - w.speedRef) * w.perSpeed,
+        Pd: ((Number(values.Pd) || 0) - w.pdRef) * w.perPd
+      }
+      let weldMargin = 0
+      Object.entries(weldContrib).forEach(([k, d]) => { weldMargin += k === sm.root ? d : cap(d, sm.helperCap) })
+      const weldIdx = Math.max(0, w.limit - weldMargin) * w.scale
+
+      const a = sm.air
+      const airDeko = Math.max(0, deko - a.dekoMaxPct) * a.perDekoPct
+      const airSpeed = Math.max(0, commandedSpeed - a.speedMax) * a.perSpeed
+      const airIdx = airDeko + airSpeed
+
+      const b = sm.bubbles
+      const strokeRatio = m.D > 0 ? doz / m.D : 0
+      const bubbleIdx =
+        Math.max(0, b.przMin - prz) * b.perPrz +
+        Math.max(0, strokeRatio - b.strokeMax) * b.perStroke +
+        Math.max(0, tr - b.trMax) * b.perTR +
+        Math.max(0, deko - a.dekoMaxPct) * b.perDekoPct
+
+      const mo = sm.moisture
+      const moistureIdx =
+        Math.max(0, mo.trMin - tr) * mo.perTR +
+        Math.max(0, mo.dewPoint - coldestMold) * mo.perDew
+
+      const weldLevel = lvl(weldIdx)
+      const airLevel = lvl(airIdx)
+      const bubbleLevel = lvl(bubbleIdx)
+      const moistureLevel = lvl(moistureIdx)
+      const surfaceLevel = Math.max(weldLevel, airLevel, bubbleLevel, moistureLevel)
+      if (surfaceLevel > 0 && !flash) visualLevel = Math.max(visualLevel, surfaceLevel)
+      surface = {
+        weld: weldLevel > 0, weldLevel, weldMargin: roundTo(weldMargin, 1),
+        airStreak: airLevel > 0, airLevel, hooks: airLevel > 0 && airSpeed > airDeko,
+        bubbles: bubbleLevel > 0, bubbleLevel, strokeRatio: roundTo(strokeRatio, 2),
+        moisture: moistureLevel > 0, moistureLevel,
+        surfaceLevel
+      }
+    }
+
     const sinkRisk = Math.round(clamp01((sinkDepth - model.sinkTolerance) / (model.maxSinkDepth - model.sinkTolerance)) * 100)
     const flashRisk = flash ? Math.max(25, Math.round(clamp01((compensation - flashLimit) / 0.3) * 100)) : 0
     const burnRisk = burn?.burnLevel ? 20 + burn.burnLevel * 20 : 0
-    defectPct = Math.max(shortShotRisk, sinkRisk, flashRisk, burnRisk)
+    const surfaceRisk = surface?.surfaceLevel ? 20 + surface.surfaceLevel * 20 : 0
+    defectPct = Math.max(shortShotRisk, sinkRisk, flashRisk, burnRisk, surfaceRisk)
 
     processWindowOk =
       fillAtVP >= model.vpFillMin && fillAtVP <= model.vpFillMax &&
       finalFill >= finalFillMin && !pressureLimited &&
       sinkOk && !flash && actualCushion >= model.minimumCushion &&
       (!clamp || (clamp.clampMarginOk && !clamp.overClamp)) &&
-      (!burn || (!burn.diesel && !burn.streaks && burn.dosingOk))
+      (!burn || (!burn.diesel && !burn.streaks && burn.dosingOk)) &&
+      (!surface || surface.surfaceLevel === 0)
 
     sink = {
       sinkDepth, sinkOk, sinkLevel, flash, screwBottomed, burr, flashLevel,
       ...(clamp || {}),
       ...(burn || {}),
+      ...(surface || {}),
       transmissionFactor: roundTo(transmissionFactor, 2),
       coolingNeeded: coolingNeeded === null ? null : roundTo(coolingNeeded, 1),
       postEjectSink: roundTo(postEjectSink, 2),
@@ -824,6 +913,10 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   if (sink?.flash) warnings.push('Przepakowanie gniazda — wypływka na linii podziału.')
   if (sink?.diesel) warnings.push('Przypalenia na końcu drogi płynięcia (sprężone powietrze).')
   if (sink?.streaks) warnings.push('Smugi przypalonego materiału – termiczna degradacja stopu.')
+  if (sink?.weld) warnings.push('Linie łączenia – karb w miejscu spotkania strug.')
+  if (sink?.airStreak) warnings.push(sink.hooks ? 'Haczyki powietrza przy żebrach i napisach.' : 'Smugi powietrza przy wlewku.')
+  if (sink?.bubbles) warnings.push('Pęcherzyki powietrza w detalu.')
+  if (sink?.moisture) warnings.push('Smugi wilgoci na powierzchni.')
   if (sink?.screwBottomed) warnings.push('Ślimak doszedł do przodu w fazie docisku — brak materiału do kompensacji skurczu.')
 
   return {
@@ -956,12 +1049,17 @@ export function sideDefects(values, m = MACHINE, scenario = null) {
   const flash = simulateTrainingCycle(v, m, REFERENCE.flash)
   const burn = simulateTrainingCycle(v, m, REFERENCE.burn)
   const valve = simulateTrainingCycle(v, m, REFERENCE.valve)
+  const surf = REFERENCE.surface ? simulateTrainingCycle(v, m, REFERENCE.surface) : null
   const out = []
   if (own !== 'niedolanie' && sink.finalFill < 98.5) out.push({ id: 'niedolanie', text: `niedolanie – masa ${sink.mass} g (ref. ${sink.referenceMass} g)` })
   if (own !== 'zapadniecia' && sink.sinkDepth > 0.035) out.push({ id: 'zapadniecia', text: `zapadnięcia ${sink.sinkDepth} mm` })
   if (own !== 'wyplywy' && flash.flash) out.push({ id: 'wyplywy', text: `wypływka na linii podziału – grat ${flash.burr} mm` })
   if (own !== 'przypalenia' && burn.diesel) out.push({ id: 'przypalenia', text: 'czarne przypalenia na końcu drogi płynięcia' })
   if (own !== 'smugi_przypalone' && burn.streaks) out.push({ id: 'smugi_przypalone', text: 'smugi przypalonego materiału' })
+  if (surf && own !== 'linie_laczenia' && surf.weld) out.push({ id: 'linie_laczenia', text: 'linie łączenia – karb w miejscu spotkania strug' })
+  if (surf && own !== 'smugi_powietrza' && surf.airStreak) out.push({ id: 'smugi_powietrza', text: surf.hooks ? 'haczyki powietrza przy żebrach i napisach' : 'srebrne smugi powietrza przy wlewku' })
+  if (surf && own !== 'pecherze' && surf.bubbles) out.push({ id: 'pecherze', text: 'pęcherzyki powietrza w detalu' })
+  if (surf && own !== 'smugi_wilgoci' && surf.moisture) out.push({ id: 'smugi_wilgoci', text: 'smugi wilgoci na powierzchni' })
   if (!valveOwn && valve.valveQuality < 80) out.push({ id: 'wahania', text: 'wahania masy i poduszki między cyklami' })
   return out
 }
@@ -1000,7 +1098,11 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
     !(sd.id === 'niedolanie' && training.finalFill < 98.5) &&
     !(sd.id === 'zapadniecia' && training.sinkOk === false) &&
     !(sd.id === 'przypalenia' && training.diesel) &&
-    !(sd.id === 'smugi_przypalone' && training.streaks)
+    !(sd.id === 'smugi_przypalone' && training.streaks) &&
+    !(sd.id === 'linie_laczenia' && training.weld) &&
+    !(sd.id === 'smugi_powietrza' && training.airStreak) &&
+    !(sd.id === 'pecherze' && training.bubbles) &&
+    !(sd.id === 'smugi_wilgoci' && training.moisture)
   ) : []
   const passed =
     target <= cfg.target &&
@@ -1022,6 +1124,10 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (training?.diesel)             reasons.push(`Efekt Diesla – prędkość końcowa ${training.endSpeed} mm/s, odpowietrzenie ${Math.round(training.ventFactor * 100)}%`)
   if (training?.dosingOk === false)  reasons.push(`Dozowanie ${training.dosingTime} s dłuższe niż chłodzenie ${training.coolingTime} s`)
   if (training?.streaks)            reasons.push(`Smugi przypalonego materiału – lokalna temperatura stopu ${training.localMeltTemp} °C`)
+  if (training?.weld)               reasons.push(`Linie łączenia – temperatura czół strug ${training.weldMargin} °C względem receptury`)
+  if (training?.airStreak)          reasons.push(training.hooks ? `Haczyki powietrza – prędkość wtrysku ${training.commandedSpeed} mm/s` : `Smugi powietrza – dekompresja ${dekoPct(values)}% dawki`)
+  if (training?.bubbles)            reasons.push(`Pęcherzyki powietrza – przeciwciśnienie ${values.Prz} bar, trawersa ${values.TR} °C, droga dozowania ${training.strokeRatio}×D`)
+  if (training?.moisture)           reasons.push(`Smugi wilgoci – trawersa ${values.TR} °C, najzimniejsza strona formy ${Math.min(Number(values.Tr) || 0, Number(values.Ts) || 0)} °C`)
   if (training?.flash)              reasons.push(`Wypływka ${training.burr} mm – kompensacja ${training.compensation}%${training.openingForce ? `, siła rozwierająca ${training.openingForce} kN` : ''}`)
   if (training?.openingForce && !training.flash && !training.clampMarginOk) reasons.push(`Za mały zapas siły zwarcia: potrzeba ${training.requiredClamp} kN`)
   if (training?.overClamp)          reasons.push('Siła zwarcia powyżej zakresu formy')

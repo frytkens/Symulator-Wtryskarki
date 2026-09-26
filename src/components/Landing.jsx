@@ -1,3 +1,5 @@
+import { defectImage } from '../data/studentView.js'
+
 export default function Landing({ defects, onStartTraining, onOpenPanel }) {
   const ids = Object.keys(defects)
 
@@ -11,7 +13,7 @@ export default function Landing({ defects, onStartTraining, onOpenPanel }) {
       <div className="landing-grid">
         {ids.map(id => (
           <button key={id} className="landing-card" onClick={() => onStartTraining(id)}>
-            <img src={`/defects/${id}.jpg`} alt={defects[id].label} />
+            <img src={defectImage(id)} alt={defects[id].label} />
             <span>{defects[id].label}</span>
           </button>
         ))}

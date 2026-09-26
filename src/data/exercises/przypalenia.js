@@ -17,7 +17,7 @@ import { FLASH_MODEL } from './wyplywy.js'
 //    (wzorcowo ok. 256 °C; obroty +30 °C na 1 m/s, przeciwciśnienie +0,6 °C/bar).
 // Receptura wzorcowa: brak przypaleń.
 // -------------------------------------------------------------
-const burnModel = root => ({
+export const burnModel = root => ({
   ...FLASH_MODEL,
   type: 'burnMark',
   clamp: { ...FLASH_MODEL.clamp, endSpeedPressure: 0, maxClamp: 1000 },

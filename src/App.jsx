@@ -16,7 +16,7 @@ import {
   computeResult, evaluateCycle, simulateTrainingCycle
 } from './data/params.js'
 import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
-import { partViewFor, studentReasons, studentWarnings } from './data/studentView.js'
+import { partViewFor, studentReasons, studentWarnings, defectImage } from './data/studentView.js'
 import './console.css'
 
 const CYCLE_SECONDS = 5
@@ -452,6 +452,17 @@ export default function App() {
   const flashExercise = activeExercise?.processModel?.type === 'flashMark'
   const burnExercise = activeExercise?.processModel?.type === 'burnMark'
   const burnText = r => !r ? '—' : r.diesel ? 'przypalenie' : r.streaks ? 'smugi' : 'brak'
+  const surfaceExercise = activeExercise?.processModel?.type === 'surfaceMark'
+  const surfaceText = r => {
+    if (!r) return '—'
+    const found = [
+      r.weld && 'linia łączenia',
+      r.airStreak && (r.hooks ? 'haczyki powietrza' : 'smugi powietrza'),
+      r.bubbles && 'pęcherzyki',
+      r.moisture && 'smugi wilgoci'
+    ].filter(Boolean)
+    return found.length ? found.join(', ') : 'brak'
+  }
 
   const partView = partViewFor(r, wada)
 
@@ -508,7 +519,7 @@ export default function App() {
                   className={`c-defect ${active ? 'is-active' : ''} ${available ? '' : 'is-soon'}`}
                   disabled={!available || cycling}
                   onClick={() => handleOpenDefect(id)}>
-                  <img src={`/defects/${id}.jpg`} alt="" />
+                  <img src={defectImage(id)} alt="" />
                   <span className="c-defect-name">{shortLabel(BUILTIN_DEFECTS[id].label)}</span>
                   {!available && <span className="c-defect-soon mono">wkrótce</span>}
                 </button>
@@ -723,6 +734,13 @@ export default function App() {
                         <small className="mono">Referencja: {r.referenceMass} g</small>
                       </>}
                     </div>
+                    {surfaceExercise && (
+                      <div className="c-metric c-metric--wide">
+                        <span className="mono">WADY POWIERZCHNI (OCENA WIZUALNA)</span>
+                        <strong className={r ? (surfaceText(r) === 'brak' ? 'is-ok' : 'is-ng') : ''}>{surfaceText(r)}</strong>
+                        {r && <small className="mono">Temperatura masy {r.meltTemperature} °C · forma {r.moldTemperature} °C · dozowanie {r.dosingTime} s</small>}
+                      </div>
+                    )}
                     {burnExercise && (
                       <div className="c-metric c-metric--wide">
                         <span className="mono">PRZYPALENIA / SMUGI (OCENA WIZUALNA)</span>
@@ -868,7 +886,7 @@ export default function App() {
                   <table className="c-log mono">
                     <thead>
                       <tr>
-                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}{flashExercise && <th>Grat</th>}{burnExercise && <th>Przypal.</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
+                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}{flashExercise && <th>Grat</th>}{burnExercise && <th>Przypal.</th>}{surfaceExercise && <th>Powierzchnia</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
                         <th>t wtrysku</th><th>t cyklu</th><th>Zmiany nastaw</th>
                       </tr>
                     </thead>
@@ -886,6 +904,7 @@ export default function App() {
                           {sinkExercise && <td>{e.sinkDepth} mm</td>}
                           {flashExercise && <td>{e.burr} mm</td>}
                           {burnExercise && <td>{burnText(e)}</td>}
+                          {surfaceExercise && <td>{surfaceText(e)}</td>}
                           <td>{e.actualCushion} mm</td>
                           <td>{e.maxPressure} bar</td>
                           <td>{e.injectionTime} s</td>
@@ -940,7 +959,7 @@ export default function App() {
         <div className="c-modal-bg" onClick={() => setPickerWada(null)}>
           <div className="c-modal" onClick={e => e.stopPropagation()}>
             <div className="c-modal-head">
-              <img src={`/defects/${pickerWada}.jpg`} alt="" />
+              <img src={defectImage(pickerWada)} alt="" />
               <div>
                 <span className="mono c-muted">WYBÓR ĆWICZENIA</span>
                 <h2>{shortLabel(BUILTIN_DEFECTS[pickerWada]?.label)}</h2>

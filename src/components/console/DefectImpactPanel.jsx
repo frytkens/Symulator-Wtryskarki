@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ALL_PARAMS, simulateTrainingCycle } from '../../data/params.js'
 import { EXERCISES, exerciseValues, VISIBLE_EXERCISE_KEYS } from '../../data/exercises/index.js'
 import { SINK_MODEL, BASE_START } from '../../data/exercises/zapadniecia.js'
+import { surfaceModel } from '../../data/exercises/powierzchnia.js'
 import { LABELS } from '../../data/labels.js'
 import ParamStepper from './ParamStepper.jsx'
 
@@ -32,6 +33,11 @@ function indicators(values) {
   const burnModel = EXERCISES.przypalenia_D01.processModel
   const burnA = simulateTrainingCycle(values, EXERCISES.przypalenia_D01.machine,
     { processModel: { ...burnModel, burn: { ...burnModel.burn, helperCap: Infinity } } })
+  // Wady powierzchni – wszystkie składniki bez ograniczeń scenariusza.
+  const surfRef = surfaceModel(null)
+  const surf = simulateTrainingCycle(values, EXERCISES.linie_L01.machine,
+    { processModel: { ...surfRef, surface: { ...surfRef.surface, helperCap: Infinity } } })
+  const lvlPct = l => [0, 45, 65, 85, 100][l || 0]
   const valveA = simulateTrainingCycle(values, EXERCISES.niedolanie_N012.machine, EXERCISES.niedolanie_N012)
   // Wskaźnik zaworu z modelu N-02 (dekompresja + parametry pomocnicze: V1, T1/T2, przeciwciśnienie).
   const valveQuality = valveA.valveQuality / 100
@@ -62,6 +68,26 @@ function indicators(values) {
         id: 'smugi', label: 'Smugi przypalonego materiału',
         pct: Math.round(clamp01((burnA.localMeltTemp - 250) / 25) * 100),
         detail: `lokalna temperatura stopu ${burnA.localMeltTemp} °C (próg 265 °C)`
+      },
+      {
+        id: 'linie', label: 'Linie łączenia',
+        pct: surf.weld ? lvlPct(surf.weldLevel) : Math.round(clamp01((6 - surf.weldMargin) / 24) * 35),
+        detail: `temperatura czół strug ${surf.weldMargin} °C względem receptury (próg −6 °C)`
+      },
+      {
+        id: 'powietrze', label: 'Smugi / haczyki powietrza',
+        pct: lvlPct(surf.airLevel),
+        detail: `dekompresja ${Math.round((Number(values.Deko) || 0) / Math.max(1, Number(values.doz) || 0) * 100)}% dawki (maks. 10%) · prędkość ${surf.commandedSpeed} mm/s (maks. 120)`
+      },
+      {
+        id: 'pecherzyki', label: 'Pęcherzyki powietrza',
+        pct: lvlPct(surf.bubbleLevel),
+        detail: `przeciwciśnienie ${values.Prz} bar (min. 6) · trawersa ${values.TR} °C (maks. 70) · dozowanie ${surf.strokeRatio}×D (maks. 3)`
+      },
+      {
+        id: 'wilgoc', label: 'Smugi wilgoci',
+        pct: lvlPct(surf.moistureLevel),
+        detail: `trawersa ${values.TR} °C (min. 35) · najzimniejsza strona formy ${Math.min(Number(values.Tr) || 0, Number(values.Ts) || 0)} °C (punkt rosy 18 °C)`
       },
       {
         id: 'wahania', label: 'Wahania masy (zawór zwrotny)',
