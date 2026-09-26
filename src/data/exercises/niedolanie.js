@@ -50,6 +50,9 @@ export const NIEDOLANIE_EXERCISES = {
       referenceMeltTemp: 238,
       referenceMoldTemp: 40,
       referenceSpeed: 90,
+      // wyższa prędkość lekko poprawia napełnianie (+1% przy 120 mm/s, maks. +3%) – nie zastępuje V/P
+      speedGainAboveRef: 0.03,
+      maxSpeedFlow: 1.03,
       pressurePerColdMeltDegree: 1.5,
       pressurePerColdMoldDegree: 0.45,
       pressurePerExtraSpeed: 0.25,
@@ -87,6 +90,10 @@ export const NIEDOLANIE_EXERCISES = {
         'Sprawdzić otwór i temperaturę dyszy, odpowietrzenie, system dolotu i punkt wtrysku.'
       ]
     },
+    // Komunikat po cyklu, w którym zmieniono wskazane parametry.
+    changeNotes: [
+      { params: ['Pd', 'Td'], text: 'Docisk uzupełnia tylko niewielki brak i skurcz. Zwróć uwagę, czy punkt przełączenia zapewnia prawie wypełniony detal na końcu fazy wtrysku.' }
+    ],
     hints: [
       { after: 2, text: 'Porównaj drogę dozowania, pozycję V/P i poduszkę. Czy naprawdę brakuje materiału?' },
       { after: 4, when: (v) => v.doz > 66, text: 'Poduszka była prawidłowa już na początku. Zwiększenie dawki nie usuwa przyczyny.' },

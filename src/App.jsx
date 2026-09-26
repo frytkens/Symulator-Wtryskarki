@@ -302,6 +302,9 @@ export default function App() {
       evaluationReasons: evaluation.reasons,
       studentReasons: training ? studentReasons(training) : [],
       studentWarnings: training ? studentWarnings(training) : [],
+      changeNotes: (activeExercise.changeNotes || [])
+        .filter(n => n.params.some(id => changes.some(c => c.id === id)))
+        .map(n => n.text),
       stableStreak: nextStableStreak,
       requiredStableCycles,
       trend
@@ -724,6 +727,13 @@ export default function App() {
                   )}
                   {r?.studentWarnings.map(w => <div key={w} className="c-note c-note--warn">⚠ {w}</div>)}
 
+                  {r?.changeNotes?.length > 0 && !solved && (
+                    <div className="c-note c-note--hint">
+                      <strong>Uwaga do zmiany nastaw</strong>
+                      <ul>{r.changeNotes.map(t => <li key={t}>{t}</li>)}</ul>
+                    </div>
+                  )}
+
                   {visibleHints.length > 0 && (
                     <div className="c-note c-note--hint">
                       <strong>Wskazówka procesu</strong>
@@ -896,6 +906,13 @@ export default function App() {
               <div className="c-modal-block">
                 <strong className="mono">OBSERWACJE</strong>
                 <ul>{resultModal.studentReasons.map(x => <li key={x}>{x}</li>)}</ul>
+              </div>
+            )}
+
+            {!resultModal.evaluationPassed && resultModal.changeNotes?.length > 0 && (
+              <div className="c-modal-block c-modal-block--note">
+                <strong className="mono">UWAGA DO ZMIANY NASTAW</strong>
+                <ul>{resultModal.changeNotes.map(t => <li key={t}>{t}</li>)}</ul>
               </div>
             )}
 

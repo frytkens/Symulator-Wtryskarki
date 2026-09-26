@@ -518,3 +518,5 @@
 }
 
 .c-note-source { display: block; margin-top: 8px; font: 10px var(--c-mono); color: var(--c-muted); }
+.c-modal-block--note { border: 1px solid #3c4270; }
+.c-modal-block--note strong { color: var(--c-info); }

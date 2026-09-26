@@ -475,7 +475,11 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     1 + (tm - model.referenceMeltTemp) * model.flowPerMeltDegree +
         (moldTemp - model.referenceMoldTemp) * model.flowPerMoldDegree
   )
-  const speedFlow = clamp01(0.72 + actualSpeed / model.referenceSpeed * 0.28)
+  // Poniżej prędkości referencyjnej czoło stygnie – gorsze napełnianie. Powyżej niej
+  // (tylko gdy scenariusz ma speedGainAboveRef) niewielki zysk, ograniczony maxSpeedFlow.
+  const speedFlow = actualSpeed > model.referenceSpeed && model.speedGainAboveRef
+    ? Math.min(model.maxSpeedFlow ?? 1, 1 + (actualSpeed - model.referenceSpeed) / model.referenceSpeed * model.speedGainAboveRef)
+    : clamp01(0.72 + actualSpeed / model.referenceSpeed * 0.28)
 
   // Model zaworu zwrotnego. Słabe przygotowanie zaworu powoduje cofanie stopu,
   // stratę skutecznego skoku i zmienność między cyklami.
