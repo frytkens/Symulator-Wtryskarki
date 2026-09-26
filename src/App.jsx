@@ -151,6 +151,8 @@ export default function App() {
 
   const [countdown, setCountdown] = useState(null) // null = brak trwającego cyklu
   const [cycleLog, setCycleLog] = useState([])
+  const [stableStreak, setStableStreak] = useState(0)
+  const stableStreakRef = useRef(0)
   const [wada, setWada] = useState('niedolanie')
   // wariant ćwiczenia dla bieżącej wady (np. 'niedolanie' / 'niedolanie_B' / 'niedolanie_C').
   // null = dla tej wady nie ma jeszcze zdefiniowanego ćwiczenia -> spadamy na stare losowanie.
@@ -158,6 +160,7 @@ export default function App() {
   const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
   const lastLoggedValues = useRef(defaultValues())
   const lastDefectPct = useRef(computeResult(defects, wada, defaultValues(), MACHINE, null).defectPct)
+  const cycleCounterRef = useRef(0)
   const countdownRef = useRef(null)
 
   const cycling = countdown !== null
@@ -245,6 +248,9 @@ export default function App() {
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
     setCycleLog([])
+    stableStreakRef.current = 0
+    cycleCounterRef.current = 0
+    setStableStreak(0)
     setResultModal(null)
     setProcessResult(null)
     setElapsedMs(0)
@@ -263,6 +269,9 @@ export default function App() {
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
     setCycleLog([])
+    stableStreakRef.current = 0
+    cycleCounterRef.current = 0
+    setStableStreak(0)
     setResultModal(null)
     setProcessResult(null)
     clearInterval(countdownRef.current)
@@ -285,6 +294,9 @@ export default function App() {
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, newWada, fresh, newMachine, newExerciseKey ? EXERCISES[newExerciseKey] : null).defectPct
     setCycleLog([])
+    stableStreakRef.current = 0
+    cycleCounterRef.current = 0
+    setStableStreak(0)
     setResultModal(null)
     setProcessResult(null)
     clearInterval(countdownRef.current)
@@ -304,6 +316,9 @@ export default function App() {
     lastLoggedValues.current = fresh
     lastDefectPct.current = computeResult(defects, wada, fresh, newMachine, EXERCISES[newExerciseKey]).defectPct
     setCycleLog([])
+    stableStreakRef.current = 0
+    cycleCounterRef.current = 0
+    setStableStreak(0)
     setResultModal(null)
     setProcessResult(null)
     clearInterval(countdownRef.current)
@@ -328,11 +343,18 @@ export default function App() {
           clearInterval(countdownRef.current)
           // cykl zakończony – policz wynik i zapisz do logu
           const currentValues = valuesRef.current
-          const { defectPct } = computeResult(defects, wada, currentValues, exerciseMachine, activeExercise)
+          cycleCounterRef.current += 1
+          const cycleValues = { ...currentValues, _cycleIndex: cycleCounterRef.current }
+          const { defectPct } = computeResult(defects, wada, cycleValues, exerciseMachine, activeExercise)
           const evaluation = activeExercise
-            ? evaluateCycle(defects, wada, currentValues, exerciseMachine, activeExercise.pass, activeExercise)
+            ? evaluateCycle(defects, wada, cycleValues, exerciseMachine, activeExercise.pass, activeExercise)
             : null
-          const isSolved = evaluation ? evaluation.passed : defectPct <= SUCCESS_THRESHOLD
+          const singleCyclePassed = evaluation ? evaluation.passed : defectPct <= SUCCESS_THRESHOLD
+          const requiredStableCycles = activeExercise?.pass?.requiredStableCycles || 1
+          const nextStableStreak = singleCyclePassed ? stableStreakRef.current + 1 : 0
+          stableStreakRef.current = nextStableStreak
+          setStableStreak(nextStableStreak)
+          const isSolved = singleCyclePassed && nextStableStreak >= requiredStableCycles
 
           let trend = 'first'
           if (lastDefectPct.current !== null) {
@@ -354,7 +376,7 @@ export default function App() {
           lastLoggedValues.current = { ...currentValues }
 
           const baseSummary = computeProcessSummary(currentValues, exerciseMachine)
-          const trainingSummary = simulateTrainingCycle(currentValues, exerciseMachine, activeExercise)
+          const trainingSummary = simulateTrainingCycle(cycleValues, exerciseMachine, activeExercise)
           const completeSummary = trainingSummary ? {
             ...baseSummary,
             ...trainingSummary,
@@ -370,19 +392,25 @@ export default function App() {
             wydajnoscSzt: trainingSummary.productivity,
             cushionRaw: trainingSummary.physicalCushion,
             evaluationPassed: isSolved,
+            singleCyclePassed,
+            stableStreak: nextStableStreak,
+            requiredStableCycles,
             evaluationReasons: evaluation?.reasons || []
           } : {
             ...baseSummary,
             evaluationPassed: isSolved,
+            singleCyclePassed,
+            stableStreak: nextStableStreak,
+            requiredStableCycles,
             evaluationReasons: evaluation?.reasons || []
           }
           setProcessResult(completeSummary)
 
           setCycleLog(log => [
-            { cycle: log.length + 1, changes, defectPct, solved: isSolved, trend, reasons: evaluation?.reasons || [] },
+            { cycle: log.length + 1, changes, defectPct, solved: isSolved, singleCyclePassed, stableStreak: nextStableStreak, requiredStableCycles, trend, reasons: evaluation?.reasons || [] },
             ...log
           ])
-          setResultModal({ solved: isSolved, trend, defectPct, evaluation })
+          setResultModal({ solved: isSolved, singleCyclePassed, stableStreak: nextStableStreak, requiredStableCycles, trend, defectPct, evaluation })
 
           if (isSolved) {
             setRunning(false)
@@ -598,7 +626,9 @@ export default function App() {
           <div className={resultModal.solved ? 'solved-msg' : 'tc-warning'} style={{ marginBottom: 14 }}>
             {resultModal.solved
               ? '✓ SZTUKA OK — ĆWICZENIE ZAKOŃCZONE'
-              : `✕ SZTUKA NG${resultModal.evaluation?.reasons?.length ? ': ' + resultModal.evaluation.reasons.join(' • ') : ''}`}
+              : resultModal.singleCyclePassed
+                ? `✓ CYKL STABILNY ${resultModal.stableStreak}/${resultModal.requiredStableCycles}`
+                : `✕ SZTUKA NG${resultModal.evaluation?.reasons?.length ? ': ' + resultModal.evaluation.reasons.join(' • ') : ''}`}
           </div>
         )}
         {processResult ? (
@@ -619,6 +649,18 @@ export default function App() {
               {processResult.requiredStroke !== undefined && <div className="process-stat">
                 <span className="ps-label">Skok wymagany dla stopu</span>
                 <span className="ps-value">{processResult.requiredStroke} mm</span>
+              </div>}
+              {processResult.valveScenario && <div className="process-stat">
+                <span className="ps-label">Sprawność zaworu zwrotnego</span>
+                <span className="ps-value">{processResult.valveEfficiency}%</span>
+              </div>}
+              {processResult.valveScenario && <div className="process-stat">
+                <span className="ps-label">Strata skoku przez cofanie stopu</span>
+                <span className="ps-value">{processResult.valveStrokeLoss} mm</span>
+              </div>}
+              {processResult.requiredStableCycles > 1 && <div className="process-stat">
+                <span className="ps-label">Stabilna seria</span>
+                <span className="ps-value">{processResult.stableStreak}/{processResult.requiredStableCycles}</span>
               </div>}
               {processResult.fillAtVP !== undefined && <div className="process-stat">
                 <span className="ps-label">Wypełnienie przy V/P</span>
@@ -758,15 +800,21 @@ export default function App() {
             )}
 
             <div className={`verdict-title ${resultModal.solved ? 'ok' : 'ng'}`}>
-              {resultModal.solved ? 'SZTUKA OK — ĆWICZENIE ZAKOŃCZONE' : 'Sztuka NG'}
+              {resultModal.solved
+                ? 'SZTUKA OK — ĆWICZENIE ZAKOŃCZONE'
+                : resultModal.singleCyclePassed
+                  ? `CYKL STABILNY ${resultModal.stableStreak}/${resultModal.requiredStableCycles}`
+                  : 'Sztuka NG'}
             </div>
             <p className="verdict-sub">
               {resultModal.solved
-                ? 'Detal jest kompletny, a ustawienia spełniają warunki jakościowe scenariusza.'
-                : 'Detal nadal nie spełnia warunków jakościowych. Przeanalizuj masę, poduszkę, V/P i ograniczenie ciśnienia.'}
+                ? 'Detal jest kompletny, proces stabilny, a ćwiczenie zaliczone.'
+                : resultModal.singleCyclePassed
+                  ? `Parametry są prawidłowe. Wykonaj kolejny cykl bez zmian (${resultModal.stableStreak}/${resultModal.requiredStableCycles}).`
+                  : 'Detal lub stabilność procesu nie spełnia warunków. Przeanalizuj parametry i wyniki cyklu.'}
             </p>
 
-            {!resultModal.solved && resultModal.evaluation?.reasons?.length > 0 && (
+            {!resultModal.singleCyclePassed && resultModal.evaluation?.reasons?.length > 0 && (
               <div className="trainer-notes">
                 <h4>Dlaczego cykl nie został zaliczony</h4>
                 <ul>{resultModal.evaluation.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>

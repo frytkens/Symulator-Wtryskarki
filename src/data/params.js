@@ -440,14 +440,17 @@ function clamp01(x) { return Math.max(0, Math.min(1, x)) }
 function roundTo(x, d = 1) { const f = 10 ** d; return Math.round(x * f) / f }
 
 export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
-  if (!scenario?.processModel || scenario.processModel.type !== 'shortShotVP') return null
+  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve'].includes(scenario.processModel.type)) return null
 
   const model = scenario.processModel
   const doz = Number(values.doz) || 0
   const vp = Number(values.Pp) || 0
-  const commandedSpeed = ['Pw1','Pw2','Pw3','Pw4','Pw5']
+  const speedIds = model.type === 'shortShotValve' && model.valveCause === 'firstSpeed'
+    ? ['Pw2','Pw3','Pw4','Pw5']
+    : ['Pw1','Pw2','Pw3','Pw4','Pw5']
+  const commandedSpeed = speedIds
     .map(id => Number(values[id]) || 0)
-    .reduce((a,b) => a+b, 0) / 5
+    .reduce((a,b) => a+b, 0) / speedIds.length
   const tm = meltTemp(values).Tm
   const moldTemp = ((Number(values.Tr) || 0) + (Number(values.Ts) || 0)) / 2
   const pressureLimit = Number(values.GR) || 0
@@ -473,14 +476,46 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
         (moldTemp - model.referenceMoldTemp) * model.flowPerMoldDegree
   )
   const speedFlow = clamp01(0.72 + actualSpeed / model.referenceSpeed * 0.28)
-  const effectiveFillStroke = velocityStroke * thermalFlow * speedFlow * flowPressureFactor
+
+  // Model zaworu zwrotnego. Słabe przygotowanie zaworu powoduje cofanie stopu,
+  // stratę skutecznego skoku i zmienność między cyklami.
+  const valveScenario = model.type === 'shortShotValve'
+  const cycleIndex = Math.max(1, Number(values._cycleIndex) || 1)
+  const jitterPattern = [0.55, -0.35, 1.0, -0.60, 0.20, -0.10]
+  const jitter = jitterPattern[(cycleIndex - 1) % jitterPattern.length]
+  let valveQuality = 1
+  let valveParameterOk = true
+  let valveTarget = null
+  if (valveScenario && model.valveCause === 'decompression') {
+    const ratio = doz > 0 ? (Number(values.Deko) || 0) / doz : 0
+    valveTarget = roundTo(doz * model.valveTargetRatio, 1)
+    valveParameterOk = ratio >= model.valveMinRatio && ratio <= model.valveMaxRatio
+    valveQuality = clamp01((ratio - 0.015) / (model.valveMinRatio - 0.015))
+    if (ratio > model.valveMaxRatio) valveQuality = clamp01(1 - (ratio - model.valveMaxRatio) / 0.10)
+  } else if (valveScenario && model.valveCause === 'firstSpeed') {
+    const firstSpeed = Number(values.Pw1) || 0
+    valveTarget = `${model.valveSpeedMin}–${model.valveSpeedMax}`
+    valveParameterOk = firstSpeed >= model.valveSpeedMin && firstSpeed <= model.valveSpeedMax
+    valveQuality = clamp01((firstSpeed - 4) / (model.valveSpeedMin - 4))
+    if (firstSpeed > model.valveSpeedMax) valveQuality = clamp01(1 - (firstSpeed - model.valveSpeedMax) / 80)
+  }
+  const valveInstability = valveScenario ? (1 - valveQuality) : 0
+  const valveStrokeLoss = valveScenario
+    ? Math.max(0.05, 0.05 + valveInstability * (3.6 + jitter * 1.4))
+    : 0
+  const valveEfficiency = clamp01(1 - valveStrokeLoss / Math.max(1, velocityStroke))
+
+  const effectiveFillStroke = Math.max(0,
+    velocityStroke * thermalFlow * speedFlow * flowPressureFactor - valveStrokeLoss
+  )
   const fillAtVP = clamp01(effectiveFillStroke / requiredStroke)
 
   // Docisk może uzupełnić maksymalnie określoną część objętości i tylko do pełnego detalu.
   const doseReserve = Math.max(0, doz - requiredStroke)
   const packingPotential = clamp01((Number(values.Pd) || 0) / model.referenceHoldingPressure) *
     clamp01((Number(values.Td) || 0) / model.gateFreezeTime) *
-    clamp01(doseReserve / model.minimumCushion)
+    clamp01(doseReserve / model.minimumCushion) *
+    (valveScenario ? (0.75 + 0.25 * valveQuality) : 1)
   const packableGap = Math.min(model.maxPackingFill, Math.max(0, 1 - fillAtVP))
   const packingFill = packableGap * packingPotential
   const finalFill = clamp01(fillAtVP + packingFill)
@@ -508,7 +543,8 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     finalFill >= finalFillMin &&
     holdingWorked &&
     !pressureLimited &&
-    actualCushion >= model.minimumCushion
+    actualCushion >= model.minimumCushion &&
+    (!valveScenario || (valveParameterOk && valveQuality >= 0.95))
 
   const shortShotRisk = Math.round(clamp01((model.goodFill - finalFill) / model.defectSpan) * 100)
   const lateSwitchRisk = Math.round(clamp01((fillAtVP - model.vpFillMax) /
@@ -548,10 +584,20 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   if (earlySwitch) warnings.push('V/P zbyt wcześnie: za małe wypełnienie w chwili przełączenia.')
   if (lateSwitch) warnings.push('V/P zbyt późno: gniazdo jest prawie lub całkowicie wypełnione przed dociskiem.')
   if (!holdingWorked && finalFill >= finalFillMin) warnings.push('Brak rzeczywistego ruchu ślimaka po V/P — docisk nie wykonuje pracy.')
+  if (valveScenario && !valveParameterOk) warnings.push('Zawór zwrotny nie zamyka się powtarzalnie — strata dawki i wahania masy.')
   if (tm > model.maximumMeltTemp) warnings.push('Temperatura masy przekracza bezpieczne okno materiału.')
 
   return {
     model: model.type,
+    cycleIndex,
+    valveScenario,
+    valveCause: model.valveCause || null,
+    valveQuality: roundTo(valveQuality * 100, 1),
+    valveEfficiency: roundTo(valveEfficiency * 100, 1),
+    valveStrokeLoss: roundTo(valveStrokeLoss, 2),
+    valveParameterOk,
+    valveTarget,
+    stableCycle: processWindowOk,
     fillAtVP: roundTo(fillAtVP * 100, 1),
     packingFill: roundTo(packingFill * 100, 1),
     finalFill: roundTo(finalFill * 100, 1),
@@ -694,6 +740,7 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (training?.lateSwitch)         reasons.push(`V/P za późno: ${training.fillAtVP}% wypełnienia przed dociskiem`)
   if (training && !training.holdingWorked) reasons.push(`Docisk nie wykonał wymaganej pracy: ruch ślimaka ${training.holdingStroke} mm`)
   if (training?.pressureLimited)    reasons.push(`Osiągnięto limit ciśnienia ${training.pressureLimit} bar`)
+  if (training?.valveScenario && !training.valveParameterOk) reasons.push(`Niestabilne zamykanie zaworu: sprawność ${training.valveEfficiency}%, strata skoku ${training.valveStrokeLoss} mm`)
 
   return {
     passed, target, risks, others,

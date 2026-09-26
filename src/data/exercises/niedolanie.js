@@ -76,6 +76,82 @@ export const NIEDOLANIE_EXERCISES = {
     ]
   },
 
+  niedolanie_N012: {
+    id: 'niedolanie',
+    code: 'N-01-2',
+    label: 'N-01-2 · Niedolanie: za mała dekompresja i zawór zwrotny',
+    learningGoal: 'Rozpoznaj opóźnione zamykanie zaworu zwrotnego spowodowane za małą dekompresją. Ustaw około 10% drogi dozowania i potwierdź trzy stabilne cykle.',
+    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
+    start: {
+      T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
+      doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
+      Pp: 12, Pd: 75, Td: 6, GR: 140,
+      Prz: 10, Ob: 0.6, Deko: 1,
+      Tr: 40, Ts: 40, Fz: 175, Tc: 35
+    },
+    reference: { Pp: 12, Deko: 6, Pw1: 90 },
+    focus: ['Deko', 'doz', 'Pp', 'Pw1', 'Pd', 'Td', 'GR'],
+    pass: { target: 12, others: 60, cushion: 5, requireProcessWindow: true, requiredStableCycles: 3 },
+    keyNumber: { label: 'Prawidłowa dekompresja', value: '5–7', unit: 'mm' },
+    processModel: {
+      type: 'shortShotValve', valveCause: 'decompression',
+      valveTargetRatio: 0.10, valveMinRatio: 0.083, valveMaxRatio: 0.117,
+      referenceMass: 29.1, meltVolumeFactor: 1.115,
+      goodFill: 0.985, defectSpan: 0.22,
+      basePressure: 92, referenceMeltTemp: 238, referenceMoldTemp: 40, referenceSpeed: 90,
+      pressurePerColdMeltDegree: 1.5, pressurePerColdMoldDegree: 0.45, pressurePerExtraSpeed: 0.25,
+      flowPerMeltDegree: 0.004, flowPerMoldDegree: 0.002,
+      referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5, maxPackingFill: 0.055,
+      vpFillMin: 0.94, vpFillMax: 0.98, finalFillMin: 0.985, minimumHoldingStroke: 0.5,
+      pressureRiseStart: 0.80, fillPressureRise: 25, lateFillStart: 0.98, latePressureSpike: 30,
+      maximumMeltTemp: 260, referenceDose: 60, referenceScrewSpeed: 0.6,
+      referenceBackPressure: 10, referenceDosingTime: 6.5, backPressureTimeFactor: 0.012, auxiliaryTime: 6
+    },
+    hints: [
+      { after: 2, text: 'Porównaj dekompresję z drogą dozowania. Ile wynosi 10% dawki?' },
+      { after: 4, when: (v) => v.Deko < 5, text: 'Za mała dekompresja nie przygotowuje zaworu zwrotnego do powtarzalnego zamknięcia.' }
+    ]
+  },
+
+  niedolanie_N013: {
+    id: 'niedolanie',
+    code: 'N-01-3',
+    label: 'N-01-3 · Niedolanie: za mała pierwsza prędkość i zawór zwrotny',
+    learningGoal: 'Rozpoznaj opóźnione zamykanie zaworu zwrotnego wskutek za małej pierwszej prędkości wtrysku. Ustaw 20–40 mm/s i potwierdź trzy stabilne cykle.',
+    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
+    start: {
+      T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
+      doz: 60, Pw1: 4, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
+      Pp: 12, Pd: 75, Td: 6, GR: 140,
+      Prz: 10, Ob: 0.6, Deko: 6,
+      Tr: 40, Ts: 40, Fz: 175, Tc: 35
+    },
+    reference: { Pp: 12, Deko: 6, Pw1: 30 },
+    focus: ['Pw1', 'Deko', 'doz', 'Pp', 'Pd', 'Td', 'GR'],
+    pass: { target: 12, others: 60, cushion: 5, requireProcessWindow: true, requiredStableCycles: 3 },
+    keyNumber: { label: 'Pierwsza prędkość', value: '20–40', unit: 'mm/s' },
+    processModel: {
+      type: 'shortShotValve', valveCause: 'firstSpeed',
+      valveSpeedMin: 20, valveSpeedMax: 40,
+      referenceMass: 29.1, meltVolumeFactor: 1.115,
+      goodFill: 0.985, defectSpan: 0.22,
+      basePressure: 92, referenceMeltTemp: 238, referenceMoldTemp: 40, referenceSpeed: 90,
+      pressurePerColdMeltDegree: 1.5, pressurePerColdMoldDegree: 0.45, pressurePerExtraSpeed: 0.25,
+      flowPerMeltDegree: 0.004, flowPerMoldDegree: 0.002,
+      referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5, maxPackingFill: 0.055,
+      vpFillMin: 0.94, vpFillMax: 0.98, finalFillMin: 0.985, minimumHoldingStroke: 0.5,
+      pressureRiseStart: 0.80, fillPressureRise: 25, lateFillStart: 0.98, latePressureSpike: 30,
+      maximumMeltTemp: 260, referenceDose: 60, referenceScrewSpeed: 0.6,
+      referenceBackPressure: 10, referenceDosingTime: 6.5, backPressureTimeFactor: 0.012, auxiliaryTime: 6
+    },
+    hints: [
+      { after: 2, text: 'Pierwszy stopień wtrysku odpowiada za szybkie i powtarzalne zamknięcie zaworu zwrotnego.' },
+      { after: 4, when: (v) => v.Pw1 < 20, text: '4 mm/s to za mało. Sprawdź zakres 20–40 mm/s.' }
+    ]
+  },
+
   niedolanie_B: {
     id: 'niedolanie',
     label: 'Niedolanie – wariant B: „poduszka jest, problem gdzie indziej”',
