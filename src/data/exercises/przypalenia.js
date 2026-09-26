@@ -25,7 +25,7 @@ const burnModel = root => ({
     root,
     ventSpeed: 110, nominalRequiredClamp: 526, overclampAllowed: 1.2, crushFactor: 1.5,
     localRef: 256, degradeTemp: 265, helperCap: 6,
-    profileRef: 232.35, perProfileDegree: 0.4,
+    profileRef: 232.35, perProfileDegree: 0.6,
     obRef: 0.6, perOb: 30,
     przRef: 10, perPrz: 0.6,
     speedRef: 90, perSpeed: 0.05
@@ -107,10 +107,10 @@ export const PRZYPALENIA_EXERCISES = {
       message: 'Na końcu drogi płynięcia, w narożu naprzeciw dolotu, pojawiają się czarne przypalenia. Wada jest zawsze w tym samym miejscu. Masa i wymiary są w normie.',
       facts: ['Czarne przypalenia na końcu drogi płynięcia', 'Stałe miejsce wady', 'Masa w normie']
     },
-    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (160 mm/s). Na końcu napełniania powietrze nie zdążyło uciec przez odpowietrzenia, zostało gwałtownie sprężone i nagrzane – efekt Diesla przypalał tworzywo. Prawidłowy zakres V5 to ok. 70–110 mm/s (profil szybko–wolno na końcu). Temperatura stopu nie ma tu znaczenia – to problem odpowietrzenia.',
+    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (130 mm/s). Na końcu napełniania powietrze nie zdążyło uciec przez odpowietrzenia, zostało gwałtownie sprężone i nagrzane – efekt Diesla przypalał tworzywo. Prawidłowy zakres V5 to ok. 70–110 mm/s (profil szybko–wolno na końcu). Temperatura stopu nie ma tu znaczenia – to problem odpowietrzenia.',
     machine: MACHINE,
     material: MATERIAL,
-    start: { ...BASE_START, Pw5: 160 },
+    start: { ...BASE_START, Pw5: 130 },
     reference: { Pw5: 90 },
     focus: ['Pw5'],
     pass: PASS,

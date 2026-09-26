@@ -173,10 +173,10 @@ export const WYPLYWY_EXERCISES = {
     learningGoal: FLASH_GOAL,
     operatorReport: {
       title: 'Zgłoszenie operatora',
-      message: 'Grat pojawia się na linii podziału na końcu drogi płynięcia. Detal jest kompletny, masa w normie, ciśnienia na ekranie wyglądają zwyczajnie. Wada jest powtarzalna.',
-      facts: ['Grat na końcu drogi płynięcia', 'Masa w normie', 'Wada powtarzalna']
+      message: 'Grat pojawia się na linii podziału na końcu drogi płynięcia, a w tym samym narożu widać ciemne przebarwienia. Detal jest kompletny, masa w normie, ciśnienia na ekranie wyglądają zwyczajnie.',
+      facts: ['Grat na końcu drogi płynięcia', 'Ciemne przebarwienia w tym samym narożu', 'Masa w normie']
     },
-    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (200 mm/s). Czoło tworzywa uderzało w koniec gniazda z dużą energią i lokalny pik ciśnienia rozwierał formę. Prawidłowy zakres V5 to ok. 70–115 mm/s (profil wolno–szybko–wolno). Niższa prędkość końcowa ogranicza pik bez utraty napełnienia.',
+    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (200 mm/s). Czoło tworzywa uderzało w koniec gniazda z dużą energią i lokalny pik ciśnienia rozwierał formę. Ta sama przyczyna sprężała powietrze na końcu napełniania (efekt Diesla – ciemne przebarwienia). Prawidłowy zakres V5 to ok. 70–110 mm/s (profil wolno–szybko–wolno). Niższa prędkość końcowa usuwa obie wady bez utraty napełnienia.',
     machine: MACHINE,
     material: MATERIAL,
     start: { ...BASE_START, Pw5: 200 },

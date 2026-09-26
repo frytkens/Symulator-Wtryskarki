@@ -61,6 +61,12 @@ export function partViewFor(result, wada) {
     const lvl = result.flashLevel || 2
     return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: FLASH_LEVELS[lvl] }
   }
+  // Wada ćwiczenia usunięta, ale nastawy wywołały inną – obraz pokazuje wadę uboczną.
+  if (result.visualLevel === 0 && result.sideDefects?.length) {
+    const sd = result.sideDefects[0]
+    const img = { wahania: 'niedolanie' }[sd.id] || sd.id
+    return { kind: 'defect', src: `/defects/${img}.jpg`, caption: `Wada uboczna: ${sd.text}` }
+  }
   if (result.visualLevel === 0) {
     const okCaption = result.model === 'burnMark' ? (wada === 'smugi_przypalone' ? STREAK_LEVELS[0] : DIESEL_LEVELS[0]) : result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
     return { kind: 'ok', caption: okCaption }

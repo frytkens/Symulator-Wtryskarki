@@ -938,6 +938,34 @@ export function allRisks(defectsRegistry, values, m = MACHINE) {
   )
 }
 
+// -------------------------------------------------------------
+// WADY UBOCZNE – wspólne modele referencyjne (rejestrowane w exercises/index.js).
+// Każde ćwiczenie ma swój model przyczyny; niezależnie od niego sprawdzamy, czy
+// nastawy kursanta nie wywołały innej wady (np. niższa temperatura → niedolanie).
+// Pomijamy wadę, której dotyczy ćwiczenie.
+// -------------------------------------------------------------
+let REFERENCE = null
+export function registerReferenceModels(models) { REFERENCE = models }
+
+export function sideDefects(values, m = MACHINE, scenario = null) {
+  if (!REFERENCE || !scenario) return []
+  const own = scenario.id
+  const valveOwn = scenario.processModel?.type === 'shortShotValve'
+  const v = { ...values, _cycleIndex: 1 }
+  const sink = simulateTrainingCycle(v, m, REFERENCE.sink)
+  const flash = simulateTrainingCycle(v, m, REFERENCE.flash)
+  const burn = simulateTrainingCycle(v, m, REFERENCE.burn)
+  const valve = simulateTrainingCycle(v, m, REFERENCE.valve)
+  const out = []
+  if (own !== 'niedolanie' && sink.finalFill < 98.5) out.push({ id: 'niedolanie', text: `niedolanie – masa ${sink.mass} g (ref. ${sink.referenceMass} g)` })
+  if (own !== 'zapadniecia' && sink.sinkDepth > 0.035) out.push({ id: 'zapadniecia', text: `zapadnięcia ${sink.sinkDepth} mm` })
+  if (own !== 'wyplywy' && flash.flash) out.push({ id: 'wyplywy', text: `wypływka na linii podziału – grat ${flash.burr} mm` })
+  if (own !== 'przypalenia' && burn.diesel) out.push({ id: 'przypalenia', text: 'czarne przypalenia na końcu drogi płynięcia' })
+  if (own !== 'smugi_przypalone' && burn.streaks) out.push({ id: 'smugi_przypalone', text: 'smugi przypalonego materiału' })
+  if (!valveOwn && valve.valveQuality < 80) out.push({ id: 'wahania', text: 'wahania masy i poduszki między cyklami' })
+  return out
+}
+
 // warunek zaliczenia: cel OK + nie zrobiłeś innej wady + poduszka fizycznie możliwa
 export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, scenario = null) {
   const cfg = pass || { target: SUCCESS_THRESHOLD, others: OTHERS_THRESHOLD, cushion: CUSHION_MIN }
@@ -966,11 +994,20 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   // pik ciśnienia, brak pracy docisku). Nie blokujemy go starymi, niezależnymi
   // krzywymi ryzyka innych ćwiczeń.
   const otherDefectsPassed = useTrainingWindow ? true : worst.pct <= cfg.others
+  // Wady uboczne, których nie zgłasza już model ćwiczenia (bez duplikatów).
+  const sides = training ? sideDefects(values, m, scenario).filter(sd =>
+    !(sd.id === 'wyplywy' && training.flash) &&
+    !(sd.id === 'niedolanie' && training.finalFill < 98.5) &&
+    !(sd.id === 'zapadniecia' && training.sinkOk === false) &&
+    !(sd.id === 'przypalenia' && training.diesel) &&
+    !(sd.id === 'smugi_przypalone' && training.streaks)
+  ) : []
   const passed =
     target <= cfg.target &&
     otherDefectsPassed &&
     cushionValue >= cfg.cushion &&
-    processWindowPassed
+    processWindowPassed &&
+    sides.length === 0
 
   const reasons = []
   if (target > cfg.target)          reasons.push(`Wada docelowa/proces V/P: ${target}% (próg ${cfg.target}%)`)
@@ -990,8 +1027,10 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (training?.overClamp)          reasons.push('Siła zwarcia powyżej zakresu formy')
   if (training?.valveScenario && !training.valveParameterOk) reasons.push(`Niestabilne zamykanie zaworu: sprawność ${training.valveEfficiency}%, strata skoku ${training.valveStrokeLoss} mm`)
 
+  sides.forEach(sd => reasons.push(`Wada uboczna: ${sd.text}`))
+
   return {
-    passed, target, risks, others,
+    passed, target, risks, others, sideDefects: sides,
     process: training ? { ...proc, cushionRaw: cushionValue, raw: cushionValue, cushion: cushionDisplay } : proc,
     training,
     reasons

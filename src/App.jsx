@@ -318,12 +318,17 @@ export default function App() {
       cycle: cycleCounterRef.current,
       settings: currentValues,
       defectPct,
-      processWindowOk: (training ? training.processWindowOk : singleCyclePassed) && adminWindowOk,
+      processWindowOk: (training ? training.processWindowOk : singleCyclePassed) && adminWindowOk && !evaluation.sideDefects?.length,
+      sideDefects: evaluation.sideDefects || [],
       singleCyclePassed,
       evaluationPassed: isSolved,
       evaluationReasons: evaluation.reasons,
       studentReasons: training
-        ? (adminWindowOk ? studentReasons(training) : [...studentReasons(training), 'Proces poza oknem technologicznym'])
+        ? [
+            ...studentReasons(training),
+            ...(evaluation.sideDefects || []).map(sd => `Wada uboczna: ${sd.text}`),
+            ...(adminWindowOk ? [] : ['Proces poza oknem technologicznym'])
+          ].filter((x, i, a) => a.indexOf(x) === i)
         : [],
       studentWarnings: training ? studentWarnings(training) : [],
       changeNotes: (activeExercise.changeNotes || [])
