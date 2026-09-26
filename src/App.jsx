@@ -5,6 +5,7 @@ import DefectsPanel from './components/DefectsPanel.jsx'
 import ParamStepper from './components/console/ParamStepper.jsx'
 import MachineSchematic from './components/console/MachineSchematic.jsx'
 import AdminMatrix from './components/console/AdminMatrix.jsx'
+import DefectImpactPanel from './components/console/DefectImpactPanel.jsx'
 import { ADMIN_CODE, rootWindowCheck } from './data/adminOverrides.js'
 import SpeedBar from './components/console/SpeedBar.jsx'
 import { LABELS } from './data/labels.js'
@@ -28,8 +29,6 @@ const SHORT_LABELS = {
   doz: 'Dozowanie', Deko: 'Dekompresja', Prz: 'Przeciwciśn.', Ob: 'Obroty ślimaka'
 }
 
-// Tryb trenera (panel wpływu, zarządzanie wadami, wartości modelu) – tylko przez ?trener
-const TRAINER_MODE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('trener')
 
 function round(n, d = 0) {
   const f = Math.pow(10, d)
@@ -106,6 +105,9 @@ const PANEL_LINKS = [
 export default function App() {
   const [view, setView] = useState('sim') // 'sim' | 'panel' | 'admin' | 'adminMatrix'
   const [adminPrompt, setAdminPrompt] = useState(null) // null | { code, error }
+  // Sesja administratora (po podaniu kodu): panel wpływu wad i wartości modelu.
+  // Kursant bez kodu nie ma do nich dostępu (brak skrótów w adresie strony).
+  const [adminSession, setAdminSession] = useState(false)
   const [customDefects, setCustomDefects] = useState(() => loadCustomWady().defects)
   const [customTrainerNotes, setCustomTrainerNotes] = useState(() => loadCustomWady().trainerNotes)
   const defects = { ...BUILTIN_DEFECTS, ...customDefects }
@@ -378,7 +380,11 @@ export default function App() {
   }
 
   if (view === 'adminMatrix') {
-    return <AdminMatrix onClose={() => setView('sim')} />
+    return <AdminMatrix onClose={() => setView('sim')} onOpenImpact={() => setView('impact')} />
+  }
+
+  if (view === 'impact') {
+    return <DefectImpactPanel onClose={() => setView('adminMatrix')} />
   }
 
   if (view === 'panel') {
@@ -459,10 +465,11 @@ export default function App() {
         <div className={`c-status mono ${cycling ? 'is-busy' : ''}`}>
           <span className="c-led" />{statusText}
         </div>
-        {TRAINER_MODE && (
+        {adminSession && (
           <div className="c-top-trainer">
-            <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('panel')}>Panel wpływu</button>
+            <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('impact')}>Panel wpływu</button>
             <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('admin')}>Wady</button>
+            <button type="button" className="c-btn c-btn--ghost" onClick={() => setAdminSession(false)}>Wyloguj</button>
           </div>
         )}
       </header>
@@ -792,7 +799,7 @@ export default function App() {
                     </div>
                   )}
 
-                  {TRAINER_MODE && r && (
+                  {adminSession && r && (
                     <div className="c-note c-note--trainer mono">
                       <strong>WARTOŚCI MODELU (TRENER)</strong>
                       <p>Wypełnienie przy V/P {r.fillAtVP}% · końcowe {r.finalFill}% · wada {r.defectPct}%</p>
@@ -878,6 +885,7 @@ export default function App() {
               e.preventDefault()
               if (adminPrompt.code.trim().toLowerCase() === ADMIN_CODE) {
                 setAdminPrompt(null)
+                setAdminSession(true)
                 stopCycle()
                 setView('adminMatrix')
               } else {

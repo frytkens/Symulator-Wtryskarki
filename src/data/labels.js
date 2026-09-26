@@ -24,5 +24,10 @@ export const LABELS = {
   Deko: 'Dekompresja',
   Prz:  'Przeciwciśnienie',
   Ob:   'Obroty ślimaka',
-  doz:  'Skok dozowania'
+  doz:  'Skok dozowania',
+
+  Tr:   'Temp. formy – str. ruchoma',
+  Ts:   'Temp. formy – str. stała',
+  Tc:   'Czas chłodzenia',
+  Fz:   'Siła zwarcia'
 }

@@ -558,3 +558,21 @@
 .a-matrix tfoot .a-sticky { background: #17181b; color: var(--c-muted); }
 .a-reset { background: none; border: 1px solid var(--c-line); color: var(--c-muted); border-radius: 5px; font: 11px var(--c-mono); padding: 3px 8px; cursor: pointer; }
 .a-reset:disabled { opacity: .35; cursor: default; }
+
+/* ---------------- panel wpływu wad ---------------- */
+.c-select { background: var(--c-card-2); color: var(--c-text); border: 1px solid var(--c-line); border-radius: 8px; padding: 9px 10px; font-size: 12px; max-width: 420px; }
+.i-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.i-list { display: flex; flex-direction: column; gap: 14px; }
+.i-row-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.i-pct { font-weight: 700; font-size: 15px; }
+.i-pct em { font-style: normal; font-size: 11px; margin-left: 6px; }
+.i-pct em.up { color: var(--c-ng); }
+.i-pct em.down { color: var(--c-accent); }
+.i-track { height: 10px; border-radius: 5px; background: #2d3036; overflow: hidden; margin-bottom: 4px; }
+.i-fill { height: 100%; transition: width .25s; }
+.i-fill.ok, .i-pct.ok { background-color: transparent; color: var(--c-accent); }
+.i-fill.ok { background: var(--c-accent); }
+.i-fill.warn { background: var(--c-warn); }
+.i-pct.warn { color: var(--c-warn); }
+.i-fill.bad { background: var(--c-ng); }
+.i-pct.bad { color: var(--c-ng); }

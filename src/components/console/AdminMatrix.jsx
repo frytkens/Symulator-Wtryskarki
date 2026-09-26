@@ -37,7 +37,7 @@ function passWindow(key, overrides, withAdmin) {
   return { text: `${hits[0]}–${hits[hits.length - 1]} ${p.unit}`, hits }
 }
 
-export default function AdminMatrix({ onClose }) {
+export default function AdminMatrix({ onClose, onOpenImpact }) {
   const [overrides, setOverrides] = useState(loadOverrides)
 
   const groups = useMemo(() => Object.keys(DEFECTS)
@@ -99,6 +99,7 @@ export default function AdminMatrix({ onClose }) {
         <div className="c-top-exercise">
           <span className="c-muted">Macierz parametrów – wartości startowe i okna zaliczenia. Zmiany zapisują się w tej przeglądarce.</span>
         </div>
+        <button type="button" className="c-btn c-btn--ghost" onClick={onOpenImpact}>Panel wpływu wad</button>
         <button type="button" className="c-btn c-btn--ghost" onClick={resetAll}>↺ Przywróć wszystko</button>
         <button type="button" className="c-btn c-btn--primary" onClick={onClose}>Zamknij</button>
       </header>
