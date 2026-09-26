@@ -645,7 +645,8 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     const compensation = neededStroke > 0 ? compStroke / neededStroke : 0
     const screwBottomed = neededStroke * requestedComp > availableStroke + 0.01
 
-    const flashLimit = model.flashCompensation * (fz / model.referenceClampForce)
+    // Z modelem siły zwarcia (clamp) wpływ Fz liczy siła rozwierająca – próg przepakowania jest stały.
+    const flashLimit = model.clamp ? model.flashCompensation : model.flashCompensation * (fz / model.referenceClampForce)
     // Wypływka także przy bardzo wysokim ciśnieniu docisku, niezależnie od czasu (siła rozrywająca).
     let flash = compensation > flashLimit ||
       (model.flashHoldingPressure ? pd > model.flashHoldingPressure * (fz / model.referenceClampForce) : false)
@@ -660,9 +661,22 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
       const lateFill = clamp01((fillAtVP - model.vpFillMax) / (1 - model.vpFillMax))
       const endSpeedPeak = Math.max(0, (Number(values.Pw5) || 0) - c.endSpeedRef) * c.endSpeedPressure *
         clamp01((fillAtVP - c.endPeakFillStart) / (model.vpFillMin - c.endPeakFillStart))
-      const fillCavityPressure = (requiredPressure + endSpeedPeak) * m.i * (c.fillTransfer + c.lateTransfer * lateFill)
+      // Straty na płynięcie zimnego stopu podnoszą ciśnienie przed ślimakiem, ale nie w gnieździe.
+      const coldFlowLoss = Math.max(0, model.referenceMeltTemp - tm) * model.pressurePerColdMeltDegree +
+        Math.max(0, model.referenceMoldTemp - moldTemp) * model.pressurePerColdMoldDegree
+      const fillCavityPressure = (requiredPressure - coldFlowLoss + endSpeedPeak) * m.i * (c.fillTransfer + c.lateTransfer * lateFill)
       const packCavityPressure = pd * m.i * c.packTransfer
-      const cavityPressure = Math.max(fillCavityPressure, packCavityPressure)
+      // Lepkość i energia napełniania (c.viscosity): niższa temperatura masy/formy i niższa
+      // prędkość ograniczają piki w gnieździe; wyższe – zwiększają. Wpływ ograniczony ±max,
+      // więc same nie usuwają przyczyny wypływki.
+      let viscosityFactor = 1
+      if (c.viscosity) {
+        const v = c.viscosity
+        viscosityFactor = Math.min(1 + v.max, Math.max(1 - v.max,
+          1 + (tm - v.meltRef) * v.perMeltDegree + (moldTemp - v.moldRef) * v.perMoldDegree +
+              (commandedSpeed - v.speedRef) * v.perSpeed))
+      }
+      const cavityPressure = Math.max(fillCavityPressure, packCavityPressure) * viscosityFactor
       const openingForce = m.Arzut * cavityPressure / 100
       const clampFlash = openingForce > fz
       const clampMarginOk = fz >= openingForce * c.safety
@@ -674,6 +688,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
         requiredClamp: roundTo(openingForce * c.safety, 0),
         clampFlash, clampMarginOk, overClamp,
         clampSafety: c.safety,
+        viscosityFactor: roundTo(viscosityFactor, 2),
         projectedArea: m.Arzut
       }
     }
@@ -699,7 +714,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     // Grubość gratu – z nadwyżki kompensacji lub siły rozwierającej nad siłą zwarcia.
     const overForce = clamp ? Math.max(0, clamp.openingForce / Math.max(1, fz) - 1) : 0
     const overPack = Math.max(0, compensation - flashLimit)
-    const burr = flash ? roundTo(Math.min(1.5, 0.05 + Math.max(overForce, overPack) * 3), 2) : 0
+    const burr = flash ? roundTo(Math.min(2.5, 0.05 + (clamp ? overForce : Math.max(overForce, overPack)) * 3), 2) : 0
     let flashLevel = 0
     if (flash) flashLevel = burr < 0.15 ? 1 : burr < 0.4 ? 2 : burr < 0.8 ? 3 : 4
 

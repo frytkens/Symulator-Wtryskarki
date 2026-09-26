@@ -18,10 +18,15 @@ import { BASE_START, SINK_MODEL, MACHINE, MATERIAL, PASS } from './zapadniecia.j
 const FLASH_MODEL = {
   ...SINK_MODEL,
   type: 'flashMark',
+  // temperatury działają tu przez lepkość w gnieździe (clamp.viscosity), nie przez skurcz/zamarzanie
+  freezePerMoldDegree: 0, freezePerMeltDegree: 0, shrinkPerMeltDegree: 0,
+  flowPerMeltDegree: 0.0005, flowPerMoldDegree: 0.0005,
   clamp: {
     fillTransfer: 0.25, lateTransfer: 0.15, packTransfer: 0.33,
     endSpeedRef: 90, endSpeedPressure: 0.5, endPeakFillStart: 0.85,
-    safety: 1.1, maxClamp: 700
+    safety: 1.1, maxClamp: 700,
+    // odwrotnie niż w niedolaniu/zapadnięciach: chłodniej i wolniej = mniejszy pik
+    viscosity: { meltRef: 243, moldRef: 40, speedRef: 90, perMeltDegree: 0.004, perMoldDegree: 0.004, perSpeed: 0.001, max: 0.12 }
   }
 }
 
@@ -38,6 +43,9 @@ const FLASH_OTHER = {
     'W formach wielogniazdowych wyrównać napełnianie gniazd.'
   ]
 }
+
+const VP_NOTE = { params: ['Pp', 'doz'], text: 'Punktu przełączenia nie przesuwaj za mocno – sprawdź, czy jest ustawiony prawidłowo. Przesuwając go (lub zmieniając skok dozowania) przenosisz część fazy wtrysku w fazę docisku.' }
+const HOLD_NOTE = { params: ['Pd', 'Td'], text: 'Docisk nie usuwa piku z fazy wtrysku. Zwróć uwagę, czy punkt przełączenia nie następuje przy już wypełnionym gnieździe.' }
 
 const CLAMP_NOTE = { params: ['Fz'], text: 'Siła zwarcia powinna wynikać z obliczenia (powierzchnia rzutu × ciśnienie w gnieździe × zapas). Jej podnoszenie tylko maskuje nadmiar materiału lub ciśnienia.' }
 
@@ -121,7 +129,7 @@ export const WYPLYWY_EXERCISES = {
     focus: ['Pp'],
     pass: PASS,
     processModel: FLASH_MODEL,
-    changeNotes: [CLAMP_NOTE],
+    changeNotes: [CLAMP_NOTE, HOLD_NOTE],
     otherParameters: FLASH_OTHER,
     solutionFormula: CLAMP_FORMULA,
     hints: [
@@ -147,7 +155,7 @@ export const WYPLYWY_EXERCISES = {
     focus: ['Pd'],
     pass: PASS,
     processModel: FLASH_MODEL,
-    changeNotes: [CLAMP_NOTE],
+    changeNotes: [CLAMP_NOTE, VP_NOTE],
     otherParameters: FLASH_OTHER,
     solutionFormula: CLAMP_FORMULA,
     hints: [
@@ -173,7 +181,7 @@ export const WYPLYWY_EXERCISES = {
     focus: ['Pw5'],
     pass: PASS,
     processModel: FLASH_MODEL,
-    changeNotes: [CLAMP_NOTE],
+    changeNotes: [CLAMP_NOTE, VP_NOTE],
     otherParameters: FLASH_OTHER,
     solutionFormula: CLAMP_FORMULA,
     hints: [
@@ -199,6 +207,7 @@ export const WYPLYWY_EXERCISES = {
     focus: ['Fz'],
     pass: PASS,
     processModel: FLASH_MODEL,
+    changeNotes: [VP_NOTE],
     otherParameters: FLASH_OTHER,
     solutionFormula: CLAMP_FORMULA,
     hints: [
