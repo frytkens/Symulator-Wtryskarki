@@ -229,7 +229,7 @@
 }
 .pstep-head { display: flex; justify-content: space-between; gap: 8px; }
 .pstep-label { font: 500 12px var(--c-mono); color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pstep-sym { font: 700 10px var(--c-mono); color: #5c616b; }
+.pstep-sym { font: 700 11px var(--c-mono); color: var(--c-accent); opacity: .75; }
 .pstep-body { display: flex; align-items: center; gap: 6px; }
 .pstep-input {
   width: 100%; min-width: 0; flex: 1;
@@ -250,9 +250,16 @@
 .pstep-btns button:hover:not(:disabled) { background: var(--c-accent); color: var(--c-accent-ink); border-color: var(--c-accent); }
 .pstep-btns button:disabled { opacity: .35; cursor: not-allowed; }
 .pstep.is-disabled .pstep-input { color: #b9bcc3; }
-.pstep--compact { padding: 8px 10px; }
-.pstep--compact .pstep-input { font-size: 17px; }
-.pstep--compact .pstep-btns button { width: 26px; height: 26px; font-size: 14px; }
+.pstep-input { font-variant-numeric: tabular-nums; }
+/* Kafel kompaktowy: wartość ma własny wiersz na pełną szerokość, przyciski pod nią –
+   liczba nigdy nie jest ucinana, niezależnie od szerokości kolumny. */
+.pstep--compact { padding: 10px 12px; gap: 8px; }
+.pstep--compact .pstep-body { flex-wrap: wrap; row-gap: 8px; }
+.pstep--compact .pstep-input { flex: 1 1 auto; width: 0; font-size: 22px; line-height: 1.1; }
+.pstep--compact .pstep-unit { font-size: 13px; }
+.pstep--compact .pstep-btns { flex: 1 1 100%; }
+.pstep--compact .pstep-btns button { flex: 1; width: auto; height: 30px; font-size: 16px; }
+.pstep-label { color: #b3b7bf; }
 
 /* ---------------- schemat ---------------- */
 .c-schematic {
@@ -262,9 +269,11 @@
   padding: 14px;
   display: flex; flex-direction: column; gap: 12px;
 }
+.c-schematic { container-type: inline-size; }
 .c-temps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
-.c-mold-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.c-row4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@container (max-width: 620px) { .c-temps { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.c-mold-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.c-row4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .schematic { width: 100%; height: auto; display: block; }
 .sch-dot { fill: #2a2d33; }
 .sch-metal { fill: #3a3d44; stroke: #50545d; stroke-width: 1; }
@@ -491,7 +500,6 @@
 @media (max-width: 1280px) {
   .c-grid { grid-template-columns: 1fr; }
   .c-col--right { position: static; }
-  .c-temps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 900px) {
   .c-top { flex-wrap: wrap; position: static; }

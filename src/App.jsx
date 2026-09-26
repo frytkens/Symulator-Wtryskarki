@@ -19,6 +19,13 @@ const CYCLE_SECONDS = 5
 const STORAGE_KEY = 'wtryskarka_custom_wady'
 const P = Object.fromEntries(ALL_PARAMS.map(p => [p.id, p]))
 
+// Krótkie etykiety kafli – symbol parametru jest pokazywany osobno, więc nie powtarzamy go w nazwie.
+const SHORT_LABELS = {
+  T1: 'Dysza', T2: 'Strefa 2', T3: 'Strefa 3', T4: 'Strefa 4', T5: 'Strefa 5', TR: 'Trawersa',
+  Tr: 'Forma – ruchoma', Ts: 'Forma – stała', Tc: 'Chłodzenie', Fz: 'Siła zwarcia',
+  doz: 'Dozowanie', Deko: 'Dekompresja', Prz: 'Przeciwciśn.', Ob: 'Obroty ślimaka'
+}
+
 // Tryb trenera (panel wpływu, zarządzanie wadami, wartości modelu) – tylko przez ?trener
 const TRAINER_MODE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('trener')
 
@@ -545,14 +552,14 @@ export default function App() {
                   <div className="c-schematic">
                     <div className="c-temps">
                       {['T1', 'T2', 'T3', 'T4', 'T5', 'TR'].map(id => (
-                        <ParamStepper key={id} param={P[id]} label={LABELS[id]} value={values[id]}
+                        <ParamStepper key={id} param={P[id]} label={SHORT_LABELS[id]} value={values[id]}
                           onChange={handleChange} disabled={controlsLocked} compact />
                       ))}
                     </div>
                     <MachineSchematic values={values} cycling={cycling} />
                     <div className="c-mold-row">
                       {['Tr', 'Ts', 'Tc', 'Fz'].map(id => (
-                        <ParamStepper key={id} param={P[id]} label={shortLabel(P[id].label.replace(/^\w+ – /, ''))}
+                        <ParamStepper key={id} param={P[id]} label={SHORT_LABELS[id]}
                           value={values[id]} onChange={handleChange} disabled={controlsLocked} compact />
                       ))}
                     </div>
@@ -625,7 +632,7 @@ export default function App() {
                   <div className="c-card-head"><h3 className="mono">PLASTYFIKACJA</h3></div>
                   <div className="c-row4">
                     {['doz', 'Deko', 'Prz', 'Ob'].map(id => (
-                      <ParamStepper key={id} param={P[id]} label={LABELS[id]} value={values[id]}
+                      <ParamStepper key={id} param={P[id]} label={SHORT_LABELS[id]} value={values[id]}
                         onChange={handleChange} disabled={controlsLocked} compact />
                     ))}
                   </div>
