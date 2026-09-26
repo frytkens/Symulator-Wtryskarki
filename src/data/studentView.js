@@ -47,36 +47,104 @@ export const STREAK_LEVELS = [
   'Brązowe przebarwienia i smugi na całym detalu'
 ]
 
+export const WELD_LEVELS = [
+  'Detal bez widocznych linii łączenia',
+  'Linia łączenia widoczna pod światło',
+  'Wyraźna matowa linia za otworem',
+  'Linia z wyczuwalnym karbem',
+  'Głęboki karb i zmiana koloru w linii łączenia'
+]
+
+export const AIR_LEVELS = [
+  'Detal bez smug powietrza',
+  'Pojedyncze matowe smugi przy wlewku',
+  'Wyraźne srebrzyste smugi przy wlewku',
+  'Białe smugi na dużej części detalu',
+  'Srebrne smugi i pęcherze na całej powierzchni'
+]
+
+export const HOOK_LEVELS = [
+  'Detal bez haczyków powietrza',
+  'Pojedyncze haczyki przy napisie',
+  'Wyraźne haczyki przy żebrach i napisie',
+  'Białe smugi i haczyki za wszystkimi żebrami',
+  'Haczyki i zamknięte powietrze na całej powierzchni'
+]
+
+export const BUBBLE_LEVELS = [
+  'Detal bez pęcherzyków',
+  'Pojedyncze drobne pęcherzyki w przekroju',
+  'Wyraźne pęcherzyki w całym detalu',
+  'Liczne pęcherze, także w cienkich miejscach',
+  'Pęcherze i wybrzuszenia na powierzchni'
+]
+
+export const MOISTURE_LEVELS = [
+  'Detal bez smug wilgoci',
+  'Pojedyncze srebrne smugi w kształcie U',
+  'Wyraźne smugi w kształcie U, szorstka powierzchnia',
+  'Smugi wilgoci na dużej części detalu',
+  'Porowata, srebrna powierzchnia na całym detalu'
+]
+
+// Wady powierzchni: flaga w wyniku cyklu, poziom, obraz i podpisy.
+const SURFACE_VIEWS = {
+  linie_laczenia: { flag: 'weld', level: 'weldLevel', captions: () => WELD_LEVELS },
+  smugi_powietrza: { flag: 'airStreak', level: 'airLevel', captions: r => (r.hooks ? HOOK_LEVELS : AIR_LEVELS) },
+  pecherze: { flag: 'bubbles', level: 'bubbleLevel', captions: () => BUBBLE_LEVELS },
+  smugi_wilgoci: { flag: 'moisture', level: 'moistureLevel', captions: () => MOISTURE_LEVELS }
+}
+
+// Zdjęcie wady. Brak własnego zdjęcia smug wilgoci – do czasu dodania pliku
+// public/defects/smugi_wilgoci.jpg pokazujemy zdjęcie smug powietrza.
+const IMAGE_FALLBACK = { smugi_wilgoci: 'smugi_powietrza', wahania: 'niedolanie' }
+export function defectImage(id) {
+  return `/defects/${IMAGE_FALLBACK[id] || id}.jpg`
+}
+
+function surfaceView(result, id) {
+  const sv = SURFACE_VIEWS[id]
+  if (!sv || !result[sv.flag]) return null
+  const caps = sv.captions(result)
+  return { kind: 'defect', src: defectImage(id), caption: caps[Math.max(1, result[sv.level] || 1)] }
+}
+
 // Obraz i podpis detalu – zawsze zgodne z oceną cyklu (standard, pkt 14).
 export function partViewFor(result, wada) {
-  if (!result) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
-  const sinkish = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark'
+  if (!result) return { kind: 'defect', src: defectImage(wada), caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
+  const sinkish = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark' || result.model === 'surfaceMark'
+  // Wada ćwiczenia (wada powierzchni) ma pierwszeństwo przed innymi wadami powierzchni.
+  const ownSurface = surfaceView(result, wada)
+  if (ownSurface && !result.flash) return ownSurface
   if (result.diesel) return { kind: 'defect', src: '/defects/przypalenia.jpg', caption: DIESEL_LEVELS[result.dieselLevel] }
   if (result.streaks) return { kind: 'defect', src: '/defects/smugi_przypalone.jpg', caption: STREAK_LEVELS[result.streakLevel] }
   if (result.flash || result.lateSwitch) {
     const lvl = result.flashLevel || 2
     return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: FLASH_LEVELS[lvl] }
   }
+  for (const id of Object.keys(SURFACE_VIEWS)) {
+    const view = surfaceView(result, id)
+    if (view) return view
+  }
   // Wada ćwiczenia usunięta, ale nastawy wywołały inną – obraz pokazuje wadę uboczną.
   if (result.visualLevel === 0 && result.sideDefects?.length) {
     const sd = result.sideDefects[0]
-    const img = { wahania: 'niedolanie' }[sd.id] || sd.id
-    return { kind: 'defect', src: `/defects/${img}.jpg`, caption: `Wada uboczna: ${sd.text}` }
+    return { kind: 'defect', src: defectImage(sd.id), caption: `Wada uboczna: ${sd.text}` }
   }
   if (result.visualLevel === 0) {
-    const okCaption = result.model === 'burnMark' ? (wada === 'smugi_przypalone' ? STREAK_LEVELS[0] : DIESEL_LEVELS[0]) : result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
+    const okCaption = result.model === 'surfaceMark' && SURFACE_VIEWS[wada] ? SURFACE_VIEWS[wada].captions(result)[0] : result.model === 'burnMark' ? (wada === 'smugi_przypalone' ? STREAK_LEVELS[0] : DIESEL_LEVELS[0]) : result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
     return { kind: 'ok', caption: okCaption }
   }
   if (result.finalFill < 98.5) return { kind: 'defect', src: '/defects/niedolanie.jpg', caption: VISUAL_LEVELS[Math.max(1, result.visualLevel)] }
   if (sinkish && result.sinkOk === false) return { kind: 'defect', src: '/defects/zapadniecia.jpg', caption: SINK_LEVELS[Math.max(1, result.sinkLevel || result.visualLevel)] }
-  return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: VISUAL_LEVELS[result.visualLevel] }
+  return { kind: 'defect', src: defectImage(wada), caption: VISUAL_LEVELS[result.visualLevel] }
 }
 
 // Powody NG widoczne dla kursanta – wyłącznie objawy mierzalne przy maszynie.
 export function studentReasons(result) {
   if (!result) return []
   const reasons = []
-  const sinkModel = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark'
+  const sinkModel = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark' || result.model === 'surfaceMark'
   if (sinkModel && result.finalFill < 98.5) {
     reasons.push(`Detal niekompletny — masa ${result.mass} g (referencja ${result.referenceMass} g)`)
   } else if (!sinkModel && result.visualLevel > 0) {
@@ -88,6 +156,10 @@ export function studentReasons(result) {
   if (result.flash) reasons.push(`Wypływka na linii podziału — grat ${result.burr} mm`)
   if (result.diesel) reasons.push('Czarne przypalenia na końcu drogi płynięcia')
   if (result.streaks) reasons.push('Brązowe/srebrzyste smugi przypalonego materiału')
+  if (result.weld) reasons.push('Widoczna linia łączenia z karbem w miejscu spotkania strug')
+  if (result.airStreak) reasons.push(result.hooks ? 'Haczyki powietrza przy żebrach i napisie' : 'Srebrne smugi powietrza w okolicy wlewka')
+  if (result.bubbles) reasons.push('Pęcherzyki powietrza w detalu')
+  if (result.moisture) reasons.push('Srebrne smugi wilgoci w kształcie litery U')
   if (result.dosingOk === false) reasons.push(`Dozowanie (${result.dosingTime} s) trwa dłużej niż chłodzenie (${result.coolingTime} s)`)
   if (result.overClamp) reasons.push('Siła zwarcia powyżej zakresu dla tej formy — ryzyko uszkodzenia płaszczyzny podziału i zgniecenia odpowietrzeń')
   if (result.openingForce && !result.flash && result.clampMarginOk === false) reasons.push('Brak zapasu siły zwarcia — forma na granicy rozwarcia')

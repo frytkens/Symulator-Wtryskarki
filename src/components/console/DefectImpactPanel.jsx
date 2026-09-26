@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ALL_PARAMS, simulateTrainingCycle, riskFor, BUILTIN_DEFECTS_ALL as DEFECTS } from '../../data/params.js'
 import { EXERCISES } from '../../data/exercises/index.js'
 import { BASE_START } from '../../data/exercises/zapadniecia.js'
+import { surfaceModel } from '../../data/exercises/powierzchnia.js'
 import { LABELS } from '../../data/labels.js'
 import ParamStepper from './ParamStepper.jsx'
 import MachineSchematic from './MachineSchematic.jsx'
@@ -46,6 +47,9 @@ function modelRisks(values) {
   const burnModel = EXERCISES.przypalenia_D01.processModel
   const burn = simulateTrainingCycle(values, m, { processModel: { ...burnModel, burn: { ...burnModel.burn, helperCap: Infinity } } })
   const valve = simulateTrainingCycle({ ...values, _cycleIndex: 1 }, m, EXERCISES.niedolanie_N012)
+  // Wady powierzchni – wszystkie składniki bez ograniczeń scenariusza (wskaźniki > 0,5 = wada).
+  const surfRef = surfaceModel(null)
+  const surf = simulateTrainingCycle(values, m, { processModel: { ...surfRef, surface: { ...surfRef.surface, helperCap: Infinity } } })
   const fz = Number(values.Fz) || 1
   // Skala jak w starym panelu: 0% przy dobrym procesie, ok. 35% na granicy pojawienia się wady
   // (koniec strefy żółtej), powyżej – nasilenie wady do 100%.
@@ -55,7 +59,12 @@ function modelRisks(values) {
     wyplywy: scale(flash.openingForce * 1.1 / fz, 0.9, 1.0, 1.6),
     przypalenia: scale(burn.dieselRatio, 0.85, 1.0, 1.8),
     smugi_przypalone: scale(burn.localMeltTemp, 256, 265, 285),
-    wahania: scale(1 - valve.valveQuality / 100, 0, 0.2, 1)
+    wahania: scale(1 - valve.valveQuality / 100, 0, 0.2, 1),
+    linie_laczenia: scale(-surf.weldMargin, 0, 6, 25),
+    smugi_powietrza: scale(surf.airIdx, 0, 0.5, 20),
+    smugi_wilgoci: scale(surf.moistureIdx, 0, 0.5, 20),
+    // Pęcherze: pęcherzyki powietrza (model) lub jamy skurczowe (krzywa z rejestru) – większe z dwóch.
+    pecherze: Math.max(scale(surf.bubbleIdx, 0, 0.5, 20), curveRisk('pecherze', values) / 100)
   }
 }
 
