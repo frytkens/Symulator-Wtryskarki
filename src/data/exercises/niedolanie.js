@@ -18,20 +18,20 @@ export const NIEDOLANIE_EXERCISES = {
       facts: ['Wada jest powtarzalna', 'Masa wypraski jest obniżona', 'Niedolanie występuje w podobnym miejscu']
     },
     solutionSummary: 'Przyczyną było zbyt wczesne przełączenie V/P. Prawidłowe okno uzyskano przy 94–98% wypełnienia w chwili przełączenia.',
-    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
       doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
       Pp: 20, Pd: 75, Td: 6, GR: 140,
       Prz: 10, Ob: 0.6, Deko: 5,
-      Tr: 40, Ts: 40, Fz: 175, Tc: 35
+      Tr: 40, Ts: 40, Fz: 600, Tc: 35
     },
     reference: {
       T1: 225, T2: 230, T3: 235, T4: 240, T5: 245,
       doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
       Pp: 12, Pd: 75, Td: 6, GR: 140,
-      Prz: 10, Ob: 0.6, Deko: 5, Tr: 40, Ts: 40, Fz: 175
+      Prz: 10, Ob: 0.6, Deko: 5, Tr: 40, Ts: 40, Fz: 600
     },
     focus: ['Pp', 'doz', 'Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5', 'GR', 'Pd', 'Td', 'T1', 'T2', 'T3', 'T4', 'T5', 'Tr', 'Ts'],
     pass: { target: 12, others: 60, cushion: 5, requireProcessWindow: true },
@@ -112,14 +112,14 @@ export const NIEDOLANIE_EXERCISES = {
       facts: ['Nasilenie niedolania zmienia się', 'Masa i poduszka nie są stabilne', 'Receptura nie była zmieniana']
     },
     solutionSummary: 'Przyczyną była za mała dekompresja i niestabilne zamykanie zaworu zwrotnego. Prawidłowy zakres wynosi 5–7 mm, czyli około 10% dawki 60 mm.',
-    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
       doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
       Pp: 12, Pd: 75, Td: 6, GR: 140,
       Prz: 10, Ob: 0.6, Deko: 1,
-      Tr: 40, Ts: 40, Fz: 175, Tc: 35
+      Tr: 40, Ts: 40, Fz: 600, Tc: 35
     },
     reference: { Pp: 12, Deko: 6, Pw1: 90 },
     focus: ['Deko', 'doz', 'Pp', 'Pw1', 'Pd', 'Td', 'GR'],
@@ -179,14 +179,14 @@ export const NIEDOLANIE_EXERCISES = {
       facts: ['Problem pojawia się na początku wtrysku', 'Masa detali jest zmienna', 'Niedolanie występuje okresowo']
     },
     solutionSummary: 'Przyczyną była za mała pierwsza prędkość wtrysku i opóźnione zamykanie zaworu zwrotnego. Prawidłowy zakres pierwszego stopnia wynosi 20–40 mm/s.',
-    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
       doz: 60, Pw1: 4, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
       Pp: 12, Pd: 75, Td: 6, GR: 140,
       Prz: 10, Ob: 0.6, Deko: 6,
-      Tr: 40, Ts: 40, Fz: 175, Tc: 35
+      Tr: 40, Ts: 40, Fz: 600, Tc: 35
     },
     reference: { Pp: 12, Deko: 6, Pw1: 30 },
     focus: ['Pw1', 'Deko', 'doz', 'Pp', 'Pd', 'Td', 'GR'],
@@ -241,7 +241,7 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie_B: {
     id: 'niedolanie',
     label: 'Niedolanie – wariant B: „poduszka jest, problem gdzie indziej”',
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 195, T2: 195, T3: 200, T4: 200, T5: 195, TR: 60,
@@ -262,7 +262,7 @@ export const NIEDOLANIE_EXERCISES = {
     id: 'niedolanie',
     label: 'Niedolanie – wariant C: „to nie są nastawy” (ukryta usterka)',
     // leak 0.55 = przeciekający zawór zwrotny. Poduszka SKACZE cykl po cyklu.
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0.55 },
+    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0.55 },
     material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 240, T2: 240, T3: 240, T4: 235, T5: 230, TR: 60,

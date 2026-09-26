@@ -2,7 +2,7 @@
 // ĆWICZENIA – wada: zapadnięcia (wciągi nad grubymi przekrojami)
 //
 // Wspólny model 'sinkMark' (src/data/params.js → simulateTrainingCycle).
-// Punkt pracy OK dla bazowej receptury (V/P 12 mm, dawka 60 mm, Fz 175 t):
+// Punkt pracy OK dla bazowej receptury (V/P 12 mm, dawka 60 mm, Fz 600 kN):
 //   Z-01 Pd 70–90 bar przy Td 7 s (zapady daleko od dolotu), Z-03 Tc ≥ ok. 23 s,
 //    Td 6–10 s przy Pd 80 bar, poduszka ≥ 5 mm.
 // Za mało → zapadnięcie; za dużo (Pd ≥ 95 bar lub Td > 10 s) → wypływka.
@@ -13,7 +13,7 @@ export const BASE_START = {
   doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
   Pp: 12, Pd: 80, Td: 7, GR: 140,
   Prz: 10, Ob: 0.6, Deko: 6,
-  Tr: 40, Ts: 40, Fz: 175, Tc: 35
+  Tr: 40, Ts: 40, Fz: 600, Tc: 35
 }
 
 export const SINK_MODEL = {
@@ -48,8 +48,8 @@ export const SINK_MODEL = {
   maxSinkDepth: 0.35,
   sinkTolerance: 0.035,
   flashCompensation: 1.2,
-  flashHoldingPressure: 120, // bar przy Fz 175 t
-  referenceClampForce: 175,
+  flashHoldingPressure: 120, // bar przy Fz 600 kN
+  referenceClampForce: 600,
   overpackMassFactor: 0.3,
   minimumCushion: 5, // PPS: poduszka min. 5 mm
   maximumCushion: 12,
@@ -71,7 +71,7 @@ export const SINK_MODEL = {
   auxiliaryTime: 6
 }
 
-export const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
+export const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 }
 export const MATERIAL = { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 }
 export const PASS = { target: 12, others: 60, cushion: 5, requireProcessWindow: true }
 const GOAL = 'Zdiagnozuj przyczynę zapadnięć i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'

@@ -10,7 +10,7 @@ export const PRZYPALENIA_EXERCISES = {
   przypalenia: {
     id: 'przypalenia',
     label: 'Przypalenia – wariant A: „pełna prędkość do samego końca”',
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 255, T2: 260, T3: 265, T4: 270, T5: 275, TR: 60,

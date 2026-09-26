@@ -6,7 +6,7 @@
 
 import { cushion, cushionSpread, dekoPct } from '../params.js'
 
-const MACH = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
+const MACH = { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 }
 const MAT  = { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 }
 
 export const WAHANIA_EXERCISES = {

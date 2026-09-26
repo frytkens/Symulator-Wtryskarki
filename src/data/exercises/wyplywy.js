@@ -12,8 +12,8 @@ import { BASE_START, SINK_MODEL, MACHINE, MATERIAL, PASS } from './zapadniecia.j
 // kompensacja skurczu) + siła rozwierająca formę:
 //   F_rozw [kN] = A_rzut [cm²] × p_gniazdo [bar] / 100
 //   p_gniazdo = p_hydr × i × współczynnik przeniesienia (napełnianie lub docisk)
-// Wypływka, gdy F_rozw > Fz. Zaliczenie wymaga zapasu Fz ≥ 1,1 × F_rozw i Fz ≤ 190 kN.
-// Receptura bazowa: F_rozw ≈ 144 kN → wymagane ≈ 158 kN, nastawa 175 kN.
+// Wypływka, gdy F_rozw > Fz. Zaliczenie wymaga zapasu Fz ≥ 1,1 × F_rozw i Fz ≤ 700 kN.
+// Receptura bazowa (A_rzut 150 cm²): F_rozw ≈ 479 kN → wymagane ≈ 527 kN, nastawa 600 kN.
 // -------------------------------------------------------------
 const FLASH_MODEL = {
   ...SINK_MODEL,
@@ -21,7 +21,7 @@ const FLASH_MODEL = {
   clamp: {
     fillTransfer: 0.25, lateTransfer: 0.15, packTransfer: 0.33,
     endSpeedRef: 90, endSpeedPressure: 0.5, endPeakFillStart: 0.85,
-    safety: 1.1, maxClamp: 190
+    safety: 1.1, maxClamp: 700
   }
 }
 
@@ -49,7 +49,7 @@ const CLAMP_FORMULA = {
     'A_rzut – powierzchnia rzutu detalu z dolotem na płaszczyznę podziału [cm²]',
     'p_gniazdo – średnie ciśnienie w gnieździe [bar]; 1 bar × 1 cm² = 10 N, więc cm² × bar / 100 = kN',
     'k – współczynnik bezpieczeństwa 1,1–1,2',
-    'Przykład: 45 cm² × 300 bar / 100 = 135 kN; × 1,2 ≈ 162 kN'
+    'Przykład: 150 cm² × 300 bar / 100 = 450 kN; × 1,2 = 540 kN'
   ]
 }
 
@@ -57,7 +57,7 @@ export const WYPLYWY_EXERCISES = {
   wyplywy: {
     id: 'wyplywy',
     label: 'Wypływy – wariant A: „za mała siła zwarcia + przepakowanie”',
-    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 },
+    machine:  { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 230, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
       T1: 250, T2: 255, T3: 260, T4: 265, T5: 270, TR: 60,
@@ -165,7 +165,7 @@ export const WYPLYWY_EXERCISES = {
       message: 'Grat pojawia się na linii podziału na końcu drogi płynięcia. Detal jest kompletny, masa w normie, ciśnienia na ekranie wyglądają zwyczajnie. Wada jest powtarzalna.',
       facts: ['Grat na końcu drogi płynięcia', 'Masa w normie', 'Wada powtarzalna']
     },
-    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (200 mm/s). Czoło tworzywa uderzało w koniec gniazda z dużą energią i lokalny pik ciśnienia rozwierał formę. Prawidłowy zakres V5 to ok. 70–110 mm/s (profil wolno–szybko–wolno). Niższa prędkość końcowa ogranicza pik bez utraty napełnienia.',
+    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (200 mm/s). Czoło tworzywa uderzało w koniec gniazda z dużą energią i lokalny pik ciśnienia rozwierał formę. Prawidłowy zakres V5 to ok. 70–115 mm/s (profil wolno–szybko–wolno). Niższa prędkość końcowa ogranicza pik bez utraty napełnienia.',
     machine: MACHINE,
     material: MATERIAL,
     start: { ...BASE_START, Pw5: 200 },
@@ -191,11 +191,11 @@ export const WYPLYWY_EXERCISES = {
       message: 'Po przezbrojeniu na tę formę na całym obwodzie linii podziału pojawił się grat. Masa, poduszka i ciśnienia wyglądają jak w poprzednich zleceniach.',
       facts: ['Grat na całym obwodzie', 'Wada po przezbrojeniu', 'Masa i ciśnienia w normie']
     },
-    solutionSummary: 'Przyczyną była za mała siła zwarcia (120 kN). Siła rozwierająca od ciśnienia w gnieździe była większa niż siła trzymająca formę. Prawidłowa nastawa to 160–190 kN: z zapasem ok. 10% nad siłą rozwierającą, ale bez nadmiaru, który niszczy płaszczyznę podziału i zgniata odpowietrzenia.',
+    solutionSummary: 'Przyczyną była za mała siła zwarcia (400 kN). Siła rozwierająca od ciśnienia w gnieździe była większa niż siła trzymająca formę. Prawidłowa nastawa to ok. 530–700 kN: z zapasem ok. 10% nad siłą rozwierającą, ale bez nadmiaru, który niszczy płaszczyznę podziału i zgniata odpowietrzenia.',
     machine: MACHINE,
     material: MATERIAL,
-    start: { ...BASE_START, Fz: 120 },
-    reference: { Fz: 175 },
+    start: { ...BASE_START, Fz: 400 },
+    reference: { Fz: 600 },
     focus: ['Fz'],
     pass: PASS,
     processModel: FLASH_MODEL,

@@ -30,7 +30,7 @@ export const CLAMP_PARAMS = [
   { id: 'Tr', label: 'Tr – temp. strony ruchomej', x: 44.8, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
   { id: 'Ts', label: 'Ts – temp. strony stałej',   x: 65.5, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
   { id: 'Tc', label: 'Tc – czas chłodzenia',            x: 44.8, y: 90.0, min: 0,  max: 120, step: 1, unit: 's',  def: 30 },
-  { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 200, step: 5, unit: 'kN', def: 180 }
+  { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 1000, step: 10, unit: 'kN', def: 600 }
 ]
 
 // Pełna lista parametrów obu diagramów, z etykietą grupy do widoku administracyjnego.
@@ -100,7 +100,7 @@ export const SPREAD_LOG_CYCLES  = 6   // ile cykli poduszki pokazujemy w logu
 // -------------------------------------------------------------
 // 2. MASZYNA I FIZYKA PROCESU
 // -------------------------------------------------------------
-export const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
+export const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 }
 
 // profil wagowy stref cylindra przy liczeniu temperatury masy – strefa bliżej dyszy ma większy wpływ
 const MELT_WEIGHTS = { T1: 0.34, T2: 0.24, T3: 0.19, T4: 0.14, T5: 0.09 }
