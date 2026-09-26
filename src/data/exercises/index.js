@@ -20,7 +20,11 @@ export const VISIBLE_EXERCISE_KEYS = new Set([
   'niedolanie_N013',
   'zapadniecia_Z01',
   'zapadniecia_Z02',
-  'zapadniecia_Z03'
+  'zapadniecia_Z03',
+  'wyplywy_W01',
+  'wyplywy_W02',
+  'wyplywy_W03',
+  'wyplywy_W04'
 ])
 
 export function exerciseValues(key, defaultValuesFn) {

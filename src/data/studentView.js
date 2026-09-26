@@ -23,15 +23,40 @@ export const SINK_LEVELS = [
   'Bardzo głębokie zapadnięcia na całej powierzchni'
 ]
 
+export const FLASH_LEVELS = [
+  'Detal bez wypływek',
+  'Delikatny film tworzywa na linii podziału',
+  'Wyraźny grat na linii podziału',
+  'Gruby grat wystający poza kontur detalu',
+  'Wypływka na całym obwodzie linii podziału'
+]
+
 export function levelCaptions(result) {
   return result?.model === 'sinkMark' ? SINK_LEVELS : VISUAL_LEVELS
+}
+
+// Obraz i podpis detalu – zawsze zgodne z oceną cyklu (standard, pkt 14).
+export function partViewFor(result, wada) {
+  if (!result) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
+  const sinkish = result.model === 'sinkMark' || result.model === 'flashMark'
+  if (result.flash || result.lateSwitch) {
+    const lvl = result.flashLevel || 2
+    return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: FLASH_LEVELS[lvl] }
+  }
+  if (result.visualLevel === 0) {
+    const okCaption = result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
+    return { kind: 'ok', caption: okCaption }
+  }
+  if (result.finalFill < 98.5) return { kind: 'defect', src: '/defects/niedolanie.jpg', caption: VISUAL_LEVELS[Math.max(1, result.visualLevel)] }
+  if (sinkish && result.sinkOk === false) return { kind: 'defect', src: '/defects/zapadniecia.jpg', caption: SINK_LEVELS[Math.max(1, result.sinkLevel || result.visualLevel)] }
+  return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: VISUAL_LEVELS[result.visualLevel] }
 }
 
 // Powody NG widoczne dla kursanta – wyłącznie objawy mierzalne przy maszynie.
 export function studentReasons(result) {
   if (!result) return []
   const reasons = []
-  const sinkModel = result.model === 'sinkMark'
+  const sinkModel = result.model === 'sinkMark' || result.model === 'flashMark'
   if (sinkModel && result.finalFill < 98.5) {
     reasons.push(`Detal niekompletny — masa ${result.mass} g (referencja ${result.referenceMass} g)`)
   } else if (!sinkModel && result.visualLevel > 0) {
@@ -40,7 +65,9 @@ export function studentReasons(result) {
   if (sinkModel && !result.sinkOk) {
     reasons.push(`Zapadnięcie na powierzchni: ${result.sinkDepth} mm (dopuszczalne ≤ 0.03 mm)`)
   }
-  if (result.flash) reasons.push('Wypływka na linii podziału — gniazdo przepakowane')
+  if (result.flash) reasons.push(`Wypływka na linii podziału — grat ${result.burr} mm`)
+  if (result.overClamp) reasons.push('Siła zwarcia powyżej zakresu dla tej formy — ryzyko uszkodzenia płaszczyzny podziału i zgniecenia odpowietrzeń')
+  if (result.openingForce && !result.flash && result.clampMarginOk === false) reasons.push('Brak zapasu siły zwarcia — forma na granicy rozwarcia')
   if (result.lateSwitch) reasons.push('Pik ciśnienia pod koniec wtrysku — ryzyko wypływki i przepakowania')
   if (result.pressureLimited) reasons.push(`Ciśnienie wtrysku doszło do limitu ${result.pressureLimit} bar`)
   const minCushion = 5

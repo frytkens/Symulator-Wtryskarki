@@ -5,6 +5,53 @@
 // =============================================================
 
 import { cushion, meltTemp } from '../params.js'
+import { BASE_START, SINK_MODEL, MACHINE, MATERIAL, PASS } from './zapadniecia.js'
+
+// -------------------------------------------------------------
+// Model wypływek W-01…W-04: ten sam silnik co zapadnięcia (napełnianie, docisk,
+// kompensacja skurczu) + siła rozwierająca formę:
+//   F_rozw [kN] = A_rzut [cm²] × p_gniazdo [bar] / 100
+//   p_gniazdo = p_hydr × i × współczynnik przeniesienia (napełnianie lub docisk)
+// Wypływka, gdy F_rozw > Fz. Zaliczenie wymaga zapasu Fz ≥ 1,1 × F_rozw i Fz ≤ 190 kN.
+// Receptura bazowa: F_rozw ≈ 144 kN → wymagane ≈ 158 kN, nastawa 175 kN.
+// -------------------------------------------------------------
+const FLASH_MODEL = {
+  ...SINK_MODEL,
+  type: 'flashMark',
+  clamp: {
+    fillTransfer: 0.25, lateTransfer: 0.15, packTransfer: 0.33,
+    endSpeedRef: 90, endSpeedPressure: 0.5, endPeakFillStart: 0.85,
+    safety: 1.1, maxClamp: 190
+  }
+}
+
+const FLASH_GOAL = 'Zdiagnozuj przyczynę wypływek i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
+
+const FLASH_OTHER = {
+  source: 'PPS ENGEL, „Przetryśnięte detale – przyczyny i działania naprawcze”, str. 59–62',
+  items: [
+    'Najpierw sprawdzić stan powierzchni uszczelniających (płaszczyzny podziału) – uszkodzone trzeba naprawić.',
+    'Siła zwarcia: zwiększyć tylko wtedy, gdy wynika to z obliczenia; zbyt duża niszczy powierzchnie podziału i odpowietrzenia.',
+    'Zoptymalizować prędkość wtrysku (profil wolno–szybko–wolno) i punkt przełączenia.',
+    'Zmniejszyć piki ciśnienia w formie: punkt przełączenia, ciśnienie docisku.',
+    'Przetrysk w okolicy punktu wtrysku: przełączyć wcześniej na docisk, obniżyć temperaturę stopu i ścianek formy.',
+    'W formach wielogniazdowych wyrównać napełnianie gniazd.'
+  ]
+}
+
+const CLAMP_NOTE = { params: ['Fz'], text: 'Siła zwarcia powinna wynikać z obliczenia (powierzchnia rzutu × ciśnienie w gnieździe × zapas). Jej podnoszenie tylko maskuje nadmiar materiału lub ciśnienia.' }
+
+// Wzór pokazywany po zaliczeniu (wartości z ostatniego cyklu uzupełnia interfejs).
+const CLAMP_FORMULA = {
+  title: 'Obliczenie siły zwarcia',
+  lines: [
+    'Fz ≥ A_rzut × p_gniazdo × k',
+    'A_rzut – powierzchnia rzutu detalu z dolotem na płaszczyznę podziału [cm²]',
+    'p_gniazdo – średnie ciśnienie w gnieździe [bar]; 1 bar × 1 cm² = 10 N, więc cm² × bar / 100 = kN',
+    'k – współczynnik bezpieczeństwa 1,1–1,2',
+    'Przykład: 45 cm² × 300 bar / 100 = 135 kN; × 1,2 ≈ 162 kN'
+  ]
+}
 
 export const WYPLYWY_EXERCISES = {
   wyplywy: {
@@ -54,7 +101,108 @@ export const WYPLYWY_EXERCISES = {
       { after: 12, when: (v, m) => cushion(v, m).raw < 5,
         text: 'Przy okazji sprawdź poduszkę – poniżej 5 mm cykl i tak nie zostanie zaliczony.' }
     ]
-  }
+  },
 
-  // ——— Miejsce na kolejne warianty wypływów ———
+  wyplywy_W01: {
+    id: 'wyplywy',
+    code: 'W-01',
+    label: 'W-01 · Wypływki — przypadek 1',
+    learningGoal: FLASH_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Na linii podziału pojawia się grat, najwięcej na końcu drogi płynięcia. Detal jest kompletny, a masa trochę wyższa niż zwykle. Wada powtarza się na każdej sztuce.',
+      facts: ['Grat na linii podziału', 'Detal kompletny, masa podwyższona', 'Wada powtarzalna']
+    },
+    solutionSummary: 'Przyczyną było zbyt późne przełączenie V/P (6 mm). Gniazdo było całkowicie wypełnione jeszcze w fazie prędkościowej, więc pod koniec wtrysku powstawał pik ciśnienia, który rozwierał formę. Prawidłowe okno to V/P 11–12 mm (ok. 94–98% wypełnienia w chwili przełączenia). Większa siła zwarcia nie usuwa przyczyny – pik jest wyższy niż możliwości maszyny.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Pp: 6 },
+    reference: { Pp: 12 },
+    focus: ['Pp'],
+    pass: PASS,
+    processModel: FLASH_MODEL,
+    changeNotes: [CLAMP_NOTE],
+    otherParameters: FLASH_OTHER,
+    solutionFormula: CLAMP_FORMULA,
+    hints: [
+      { after: 3, text: 'Porównaj ciśnienie maksymalne z limitem. W którym momencie cyklu pojawia się pik?' }
+    ]
+  },
+
+  wyplywy_W02: {
+    id: 'wyplywy',
+    code: 'W-02',
+    label: 'W-02 · Wypływki — przypadek 2',
+    learningGoal: FLASH_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Wzdłuż całej linii podziału widać cienki grat. Masa wyprasek jest wyższa niż zwykle, a detale trudniej wypadają z formy. Wada jest powtarzalna.',
+      facts: ['Grat wzdłuż linii podziału', 'Masa podwyższona', 'Utrudnione wyformowanie']
+    },
+    solutionSummary: 'Przyczyną było za wysokie ciśnienie docisku (130 bar). Gniazdo było przepakowane, a ciśnienie w fazie docisku rozwierało formę. Prawidłowe okno przy czasie docisku 7 s to 70–90 bar – wystarcza do kompensacji skurczu bez zapadnięć. Podnoszenie siły zwarcia tylko maskuje przepakowanie.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Pd: 130 },
+    reference: { Pd: 80 },
+    focus: ['Pd'],
+    pass: PASS,
+    processModel: FLASH_MODEL,
+    changeNotes: [CLAMP_NOTE],
+    otherParameters: FLASH_OTHER,
+    solutionFormula: CLAMP_FORMULA,
+    hints: [
+      { after: 3, text: 'Masa jest wyższa niż referencyjna. Która faza cyklu dopycha materiał po napełnieniu?' }
+    ]
+  },
+
+  wyplywy_W03: {
+    id: 'wyplywy',
+    code: 'W-03',
+    label: 'W-03 · Wypływki — przypadek 3',
+    learningGoal: FLASH_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Grat pojawia się na linii podziału na końcu drogi płynięcia. Detal jest kompletny, masa w normie, ciśnienia na ekranie wyglądają zwyczajnie. Wada jest powtarzalna.',
+      facts: ['Grat na końcu drogi płynięcia', 'Masa w normie', 'Wada powtarzalna']
+    },
+    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (200 mm/s). Czoło tworzywa uderzało w koniec gniazda z dużą energią i lokalny pik ciśnienia rozwierał formę. Prawidłowy zakres V5 to ok. 70–110 mm/s (profil wolno–szybko–wolno). Niższa prędkość końcowa ogranicza pik bez utraty napełnienia.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Pw5: 200 },
+    reference: { Pw5: 90 },
+    focus: ['Pw5'],
+    pass: PASS,
+    processModel: FLASH_MODEL,
+    changeNotes: [CLAMP_NOTE],
+    otherParameters: FLASH_OTHER,
+    solutionFormula: CLAMP_FORMULA,
+    hints: [
+      { after: 3, text: 'Masa i ciśnienie docisku są w normie. Co dzieje się w chwili, gdy tworzywo dochodzi do końca gniazda?' }
+    ]
+  },
+
+  wyplywy_W04: {
+    id: 'wyplywy',
+    code: 'W-04',
+    label: 'W-04 · Wypływki — przypadek 4',
+    learningGoal: FLASH_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Po przezbrojeniu na tę formę na całym obwodzie linii podziału pojawił się grat. Masa, poduszka i ciśnienia wyglądają jak w poprzednich zleceniach.',
+      facts: ['Grat na całym obwodzie', 'Wada po przezbrojeniu', 'Masa i ciśnienia w normie']
+    },
+    solutionSummary: 'Przyczyną była za mała siła zwarcia (120 kN). Siła rozwierająca od ciśnienia w gnieździe była większa niż siła trzymająca formę. Prawidłowa nastawa to 160–190 kN: z zapasem ok. 10% nad siłą rozwierającą, ale bez nadmiaru, który niszczy płaszczyznę podziału i zgniata odpowietrzenia.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Fz: 120 },
+    reference: { Fz: 175 },
+    focus: ['Fz'],
+    pass: PASS,
+    processModel: FLASH_MODEL,
+    otherParameters: FLASH_OTHER,
+    solutionFormula: CLAMP_FORMULA,
+    hints: [
+      { after: 3, text: 'Ciśnienia i masa są w normie. Co trzyma formę zamkniętą podczas wtrysku?' }
+    ]
+  }
 }

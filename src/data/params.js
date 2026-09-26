@@ -30,7 +30,7 @@ export const CLAMP_PARAMS = [
   { id: 'Tr', label: 'Tr – temp. strony ruchomej', x: 44.8, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
   { id: 'Ts', label: 'Ts – temp. strony stałej',   x: 65.5, y: 11.4, min: 10, max: 100, step: 1, unit: '°C', def: 20 },
   { id: 'Tc', label: 'Tc – czas chłodzenia',            x: 44.8, y: 90.0, min: 0,  max: 120, step: 1, unit: 's',  def: 30 },
-  { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 200, step: 5, unit: 't',  def: 180 }
+  { id: 'Fz', label: 'Fz – siła zwarcia',          x: 66.7, y: 90.0, min: 0,  max: 200, step: 5, unit: 'kN', def: 180 }
 ]
 
 // Pełna lista parametrów obu diagramów, z etykietą grupy do widoku administracyjnego.
@@ -440,7 +440,7 @@ function clamp01(x) { return Math.max(0, Math.min(1, x)) }
 function roundTo(x, d = 1) { const f = 10 ** d; return Math.round(x * f) / f }
 
 export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
-  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark'].includes(scenario.processModel.type)) return null
+  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark', 'flashMark'].includes(scenario.processModel.type)) return null
 
   const model = scenario.processModel
   const doz = Number(values.doz) || 0
@@ -611,7 +611,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   // Za mało → zapadnięcie; za dużo → przepakowanie i wypływka na linii podziału.
   // -------------------------------------------------------------
   let sink = null
-  if (model.type === 'sinkMark') {
+  if (model.type === 'sinkMark' || model.type === 'flashMark') {
     const pd = Number(values.Pd) || 0
     const td = Number(values.Td) || 0
     const fz = Number(values.Fz) || 0
@@ -647,8 +647,36 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
 
     const flashLimit = model.flashCompensation * (fz / model.referenceClampForce)
     // Wypływka także przy bardzo wysokim ciśnieniu docisku, niezależnie od czasu (siła rozrywająca).
-    const flash = compensation > flashLimit ||
+    let flash = compensation > flashLimit ||
       (model.flashHoldingPressure ? pd > model.flashHoldingPressure * (fz / model.referenceClampForce) : false)
+
+    // Siła rozwierająca formę (model.clamp): F = A_rzut × p_gniazdo / 100 [kN] (cm² × bar / 100).
+    // Ciśnienie w gnieździe = ciśnienie hydrauliczne × przełożenie i × współczynnik przeniesienia:
+    // faza napełniania (rośnie przy późnym V/P i przy wysokiej prędkości ostatniego stopnia)
+    // albo faza docisku – liczy się większa wartość.
+    let clamp = null
+    if (model.clamp) {
+      const c = model.clamp
+      const lateFill = clamp01((fillAtVP - model.vpFillMax) / (1 - model.vpFillMax))
+      const endSpeedPeak = Math.max(0, (Number(values.Pw5) || 0) - c.endSpeedRef) * c.endSpeedPressure *
+        clamp01((fillAtVP - c.endPeakFillStart) / (model.vpFillMin - c.endPeakFillStart))
+      const fillCavityPressure = (requiredPressure + endSpeedPeak) * m.i * (c.fillTransfer + c.lateTransfer * lateFill)
+      const packCavityPressure = pd * m.i * c.packTransfer
+      const cavityPressure = Math.max(fillCavityPressure, packCavityPressure)
+      const openingForce = m.Arzut * cavityPressure / 100
+      const clampFlash = openingForce > fz
+      const clampMarginOk = fz >= openingForce * c.safety
+      const overClamp = fz > c.maxClamp
+      flash = flash || clampFlash
+      clamp = {
+        cavityPressure: roundTo(cavityPressure, 0),
+        openingForce: roundTo(openingForce, 0),
+        requiredClamp: roundTo(openingForce * c.safety, 0),
+        clampFlash, clampMarginOk, overClamp,
+        clampSafety: c.safety,
+        projectedArea: m.Arzut
+      }
+    }
     // Zapadnięcia po wyformowaniu (model.postEject): za krótkie chłodzenie – zbyt cienka
     // zastygła warstwa, gorący rdzeń kurczy się już poza formą.
     let postEjectSink = 0
@@ -668,12 +696,19 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     mass = roundTo(model.referenceMass * finalFill *
       (1 - shrinkage * Math.max(0, 1 - compensation) + shrinkage * model.overpackMassFactor * Math.max(0, compensation - 1)), 1)
 
+    // Grubość gratu – z nadwyżki kompensacji lub siły rozwierającej nad siłą zwarcia.
+    const overForce = clamp ? Math.max(0, clamp.openingForce / Math.max(1, fz) - 1) : 0
+    const overPack = Math.max(0, compensation - flashLimit)
+    const burr = flash ? roundTo(Math.min(1.5, 0.05 + Math.max(overForce, overPack) * 3), 2) : 0
+    let flashLevel = 0
+    if (flash) flashLevel = burr < 0.15 ? 1 : burr < 0.4 ? 2 : burr < 0.8 ? 3 : 4
+
     let sinkLevel = 0
     if (sinkDepth > 0.25) sinkLevel = 4
     else if (sinkDepth > 0.15) sinkLevel = 3
     else if (sinkDepth > 0.08) sinkLevel = 2
     else if (!sinkOk) sinkLevel = 1
-    if (visualLevel === 0) visualLevel = sinkLevel
+    if (visualLevel === 0) visualLevel = model.type === 'flashMark' && flash ? flashLevel : sinkLevel
 
     const sinkRisk = Math.round(clamp01((sinkDepth - model.sinkTolerance) / (model.maxSinkDepth - model.sinkTolerance)) * 100)
     const flashRisk = flash ? Math.max(25, Math.round(clamp01((compensation - flashLimit) / 0.3) * 100)) : 0
@@ -682,10 +717,12 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     processWindowOk =
       fillAtVP >= model.vpFillMin && fillAtVP <= model.vpFillMax &&
       finalFill >= finalFillMin && !pressureLimited &&
-      sinkOk && !flash && actualCushion >= model.minimumCushion
+      sinkOk && !flash && actualCushion >= model.minimumCushion &&
+      (!clamp || (clamp.clampMarginOk && !clamp.overClamp))
 
     sink = {
-      sinkDepth, sinkOk, sinkLevel, flash, screwBottomed,
+      sinkDepth, sinkOk, sinkLevel, flash, screwBottomed, burr, flashLevel,
+      ...(clamp || {}),
       transmissionFactor: roundTo(transmissionFactor, 2),
       coolingNeeded: coolingNeeded === null ? null : roundTo(coolingNeeded, 1),
       postEjectSink: roundTo(postEjectSink, 2),
@@ -864,7 +901,9 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (training && !training.holdingWorked) reasons.push(`Docisk nie wykonał wymaganej pracy: ruch ślimaka ${training.holdingStroke} mm`)
   if (training?.pressureLimited)    reasons.push(`Osiągnięto limit ciśnienia ${training.pressureLimit} bar`)
   if (training?.sinkDepth !== undefined && !training.sinkOk) reasons.push(`Zapadnięcie ${training.sinkDepth} mm – kompensacja skurczu ${training.compensation}%`)
-  if (training?.flash)              reasons.push(`Przepakowanie/wypływka – kompensacja skurczu ${training.compensation}%`)
+  if (training?.flash)              reasons.push(`Wypływka ${training.burr} mm – kompensacja ${training.compensation}%${training.openingForce ? `, siła rozwierająca ${training.openingForce} kN` : ''}`)
+  if (training?.openingForce && !training.flash && !training.clampMarginOk) reasons.push(`Za mały zapas siły zwarcia: potrzeba ${training.requiredClamp} kN`)
+  if (training?.overClamp)          reasons.push('Siła zwarcia powyżej zakresu formy')
   if (training?.valveScenario && !training.valveParameterOk) reasons.push(`Niestabilne zamykanie zaworu: sprawność ${training.valveEfficiency}%, strata skoku ${training.valveStrokeLoss} mm`)
 
   return {

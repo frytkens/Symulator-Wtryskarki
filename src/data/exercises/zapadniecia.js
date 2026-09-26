@@ -8,7 +8,7 @@
 // Za mało → zapadnięcie; za dużo (Pd ≥ 95 bar lub Td > 10 s) → wypływka.
 // =============================================================
 
-const BASE_START = {
+export const BASE_START = {
   T1: 225, T2: 230, T3: 235, T4: 240, T5: 245, TR: 60,
   doz: 60, Pw1: 90, Pw2: 90, Pw3: 90, Pw4: 90, Pw5: 90,
   Pp: 12, Pd: 80, Td: 7, GR: 140,
@@ -16,7 +16,7 @@ const BASE_START = {
   Tr: 40, Ts: 40, Fz: 175, Tc: 35
 }
 
-const SINK_MODEL = {
+export const SINK_MODEL = {
   type: 'sinkMark',
   referenceMass: 29.1,
   meltVolumeFactor: 1.115,
@@ -71,9 +71,9 @@ const SINK_MODEL = {
   auxiliaryTime: 6
 }
 
-const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
-const MATERIAL = { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 }
-const PASS = { target: 12, others: 60, cushion: 5, requireProcessWindow: true }
+export const MACHINE = { D: 30, i: 11.5, Vpart: 32, Arzut: 45, dNozzle: 3.0, leak: 0 }
+export const MATERIAL = { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 }
+export const PASS = { target: 12, others: 60, cushion: 5, requireProcessWindow: true }
 const GOAL = 'Zdiagnozuj przyczynę zapadnięć i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
 
 const SINK_OTHER = {

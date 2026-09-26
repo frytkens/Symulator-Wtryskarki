@@ -12,7 +12,7 @@ import {
   computeResult, evaluateCycle, simulateTrainingCycle
 } from './data/params.js'
 import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
-import { levelCaptions, studentReasons, studentWarnings } from './data/studentView.js'
+import { partViewFor, studentReasons, studentWarnings } from './data/studentView.js'
 import './console.css'
 
 const CYCLE_SECONDS = 5
@@ -77,6 +77,20 @@ function saveCustomWady(customDefects, customTrainerNotes) {
   } catch {
     // localStorage niedostępny (np. tryb prywatny) – po prostu nie zapisujemy trwale
   }
+}
+
+// Wzór na siłę zwarcia + wartości z ostatniego cyklu (pokazywane po zaliczeniu).
+function ClampFormula({ formula, result }) {
+  return (
+    <div className="c-formula">
+      <p className="c-formula-main mono">{formula.lines[0]}</p>
+      <ul>{formula.lines.slice(1).map(l => <li key={l}>{l}</li>)}</ul>
+      <p className="mono c-formula-calc">
+        Twój cykl: {result.projectedArea} cm² × {result.cavityPressure} bar / 100 = {result.openingForce} kN
+        {' '}× {String(result.clampSafety).replace('.', ',')} = {result.requiredClamp} kN → nastawa Fz {result.settings?.Fz} kN
+      </p>
+    </div>
+  )
 }
 
 const PANEL_LINKS = [
@@ -399,15 +413,9 @@ export default function App() {
   const vpStart = activeExercise ? exerciseValues(exerciseKey, defaultValues).Pp : null
   const speedIds = ['Pw5', 'Pw4', 'Pw3', 'Pw2', 'Pw1']
   const sinkExercise = activeExercise?.processModel?.type === 'sinkMark'
+  const flashExercise = activeExercise?.processModel?.type === 'flashMark'
 
-  const partView = (() => {
-    if (!r) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
-    if (r.lateSwitch || r.flash) return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: 'Wypływka / przepakowanie na linii podziału' }
-    const captions = levelCaptions(r)
-    if (r.visualLevel === 0) return { kind: 'ok', caption: captions[0] }
-    const src = r.model === 'sinkMark' && r.finalFill < 98.5 ? '/defects/niedolanie.jpg' : `/defects/${wada}.jpg`
-    return { kind: 'defect', src, caption: captions[r.visualLevel], level: r.visualLevel }
-  })()
+  const partView = partViewFor(r, wada)
 
   const verdict = !r ? null
     : r.evaluationPassed ? { cls: 'ok', text: 'SZTUKA OK' }
@@ -673,6 +681,13 @@ export default function App() {
                         <small className="mono">Referencja: {r.referenceMass} g</small>
                       </>}
                     </div>
+                    {flashExercise && (
+                      <div className="c-metric c-metric--wide">
+                        <span className="mono">GRAT NA LINII PODZIAŁU (POMIAR)</span>
+                        <strong className={r ? (r.flash ? 'is-ng' : 'is-ok') : ''}>{r ? `${r.burr} mm` : '—'}</strong>
+                        {r && <small className="mono">Tolerancja wyrobu: brak gratu</small>}
+                      </div>
+                    )}
                     {sinkExercise && (
                       <div className="c-metric c-metric--wide">
                         <span className="mono">GŁĘBOKOŚĆ ZAPADNIĘCIA (POMIAR)</span>
@@ -748,6 +763,13 @@ export default function App() {
                     </div>
                   )}
 
+                  {solved && activeExercise.solutionFormula && r?.openingForce && (
+                    <div className="c-note c-note--ok">
+                      <strong>{activeExercise.solutionFormula.title}</strong>
+                      <ClampFormula formula={activeExercise.solutionFormula} result={r} />
+                    </div>
+                  )}
+
                   {solved && activeExercise.otherParameters && (
                     <div className="c-note c-note--hint">
                       <strong>Dodatkowe wskazania – inne parametry</strong>
@@ -797,7 +819,7 @@ export default function App() {
                   <table className="c-log mono">
                     <thead>
                       <tr>
-                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
+                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}{flashExercise && <th>Grat</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
                         <th>t wtrysku</th><th>t cyklu</th><th>Zmiany nastaw</th>
                       </tr>
                     </thead>
@@ -813,6 +835,7 @@ export default function App() {
                           </td>
                           <td>{e.mass} g</td>
                           {sinkExercise && <td>{e.sinkDepth} mm</td>}
+                          {flashExercise && <td>{e.burr} mm</td>}
                           <td>{e.actualCushion} mm</td>
                           <td>{e.maxPressure} bar</td>
                           <td>{e.injectionTime} s</td>
@@ -932,6 +955,13 @@ export default function App() {
                   {resultModal.valveScenario && ` · sprawność zaworu ${resultModal.valveEfficiency}%`}
                   {resultModal.model === 'sinkMark' && ` · kompensacja skurczu ${resultModal.compensation}% · zamarzanie przewężki ${resultModal.gateFreezeTime} s`}
                 </p>
+              </div>
+            )}
+
+            {resultModal.evaluationPassed && activeExercise?.solutionFormula && resultModal.openingForce && (
+              <div className="c-modal-block c-modal-block--ok">
+                <strong className="mono">{activeExercise.solutionFormula.title.toUpperCase()}</strong>
+                <ClampFormula formula={activeExercise.solutionFormula} result={resultModal} />
               </div>
             )}
 
