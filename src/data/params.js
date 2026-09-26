@@ -440,7 +440,7 @@ function clamp01(x) { return Math.max(0, Math.min(1, x)) }
 function roundTo(x, d = 1) { const f = 10 ** d; return Math.round(x * f) / f }
 
 export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
-  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark', 'flashMark'].includes(scenario.processModel.type)) return null
+  if (!scenario?.processModel || !['shortShotVP', 'shortShotValve', 'sinkMark', 'flashMark', 'burnMark'].includes(scenario.processModel.type)) return null
 
   const model = scenario.processModel
   const doz = Number(values.doz) || 0
@@ -611,7 +611,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   // Za mało → zapadnięcie; za dużo → przepakowanie i wypływka na linii podziału.
   // -------------------------------------------------------------
   let sink = null
-  if (model.type === 'sinkMark' || model.type === 'flashMark') {
+  if (model.type === 'sinkMark' || model.type === 'flashMark' || model.type === 'burnMark') {
     const pd = Number(values.Pd) || 0
     const td = Number(values.Td) || 0
     const fz = Number(values.Fz) || 0
@@ -725,19 +725,68 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     else if (!sinkOk) sinkLevel = 1
     if (visualLevel === 0) visualLevel = model.type === 'flashMark' && flash ? flashLevel : sinkLevel
 
+    // -------------------------------------------------------------
+    // Przypalenia (model.burn), wg PPS:
+    //  • efekt Diesla – powietrze sprężane na końcu drogi płynięcia: prędkość końcowa
+    //    (V5 rzeczywista) większa niż przepustowość odpowietrzeń; nadmierna siła zwarcia
+    //    (> ok. 20% ponad wymaganą) zgniata odpowietrzenia i zmniejsza ich przepustowość;
+    //  • smugi przypalonego materiału – lokalna temperatura stopu od ścinania (obroty,
+    //    przeciwciśnienie) i temperatury cylindra powyżej progu degradacji. Parametry
+    //    niebędące przyczyną w scenariuszu wpływają w ograniczonym zakresie (±cap).
+    // -------------------------------------------------------------
+    let burn = null
+    if (model.burn) {
+      const bm = model.burn
+      const endSpeed = (Number(values.Pw5) || 0) * flowPressureFactor
+      // Odpowietrzenia zgniata siła zwarcia powyżej ok. 120% siły wymaganej dla tej formy (stała nominalna).
+      const crushRef = bm.nominalRequiredClamp * bm.overclampAllowed
+      const over = Math.max(0, fz / Math.max(1, crushRef) - 1)
+      const ventFactor = 1 / (1 + over * bm.crushFactor)
+      const dieselRatio = endSpeed / (bm.ventSpeed * ventFactor)
+      const diesel = dieselRatio > 1
+
+      const cap = (x, c) => Math.max(-c, Math.min(c, x))
+      const contrib = {
+        temp: (meltTemp(values).profile - bm.profileRef) * bm.perProfileDegree,
+        Ob: ((Number(values.Ob) || 0) - bm.obRef) * bm.perOb,
+        Prz: ((Number(values.Prz) || 0) - bm.przRef) * bm.perPrz,
+        speed: (commandedSpeed - bm.speedRef) * bm.perSpeed
+      }
+      let localTemp = bm.localRef
+      Object.entries(contrib).forEach(([k, d]) => { localTemp += k === bm.root ? d : cap(d, bm.helperCap) })
+      const streaks = localTemp > bm.degradeTemp
+      // Dozowanie musi zakończyć się w czasie chłodzenia – inaczej wydłuża cykl i czas przebywania stopu.
+      const dosingOk = dosingTime <= coolingTime
+
+      const dieselLevel = diesel ? (dieselRatio < 1.15 ? 1 : dieselRatio < 1.35 ? 2 : dieselRatio < 1.6 ? 3 : 4) : 0
+      const over2 = localTemp - bm.degradeTemp
+      const streakLevel = streaks ? (over2 < 3 ? 1 : over2 < 7 ? 2 : over2 < 12 ? 3 : 4) : 0
+      const burnLevel = Math.max(dieselLevel, streakLevel)
+      if (burnLevel > 0 && !flash) visualLevel = Math.max(visualLevel, burnLevel)
+      burn = {
+        diesel, dieselRatio: roundTo(dieselRatio, 2), ventFactor: roundTo(ventFactor, 2), endSpeed: roundTo(endSpeed, 0),
+        streaks, localMeltTemp: roundTo(localTemp, 1), burnLevel, dieselLevel, streakLevel,
+        burnType: diesel ? 'diesel' : streaks ? 'streaks' : null,
+        dosingOk
+      }
+    }
+
     const sinkRisk = Math.round(clamp01((sinkDepth - model.sinkTolerance) / (model.maxSinkDepth - model.sinkTolerance)) * 100)
     const flashRisk = flash ? Math.max(25, Math.round(clamp01((compensation - flashLimit) / 0.3) * 100)) : 0
-    defectPct = Math.max(shortShotRisk, sinkRisk, flashRisk)
+    const burnRisk = burn?.burnLevel ? 20 + burn.burnLevel * 20 : 0
+    defectPct = Math.max(shortShotRisk, sinkRisk, flashRisk, burnRisk)
 
     processWindowOk =
       fillAtVP >= model.vpFillMin && fillAtVP <= model.vpFillMax &&
       finalFill >= finalFillMin && !pressureLimited &&
       sinkOk && !flash && actualCushion >= model.minimumCushion &&
-      (!clamp || (clamp.clampMarginOk && !clamp.overClamp))
+      (!clamp || (clamp.clampMarginOk && !clamp.overClamp)) &&
+      (!burn || (!burn.diesel && !burn.streaks && burn.dosingOk))
 
     sink = {
       sinkDepth, sinkOk, sinkLevel, flash, screwBottomed, burr, flashLevel,
       ...(clamp || {}),
+      ...(burn || {}),
       transmissionFactor: roundTo(transmissionFactor, 2),
       coolingNeeded: coolingNeeded === null ? null : roundTo(coolingNeeded, 1),
       postEjectSink: roundTo(postEjectSink, 2),
@@ -758,6 +807,8 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   if (valveScenario && !valveParameterOk) warnings.push('Zawór zwrotny nie zamyka się powtarzalnie — strata dawki i wahania masy.')
   if (tm > model.maximumMeltTemp) warnings.push('Temperatura masy przekracza bezpieczne okno materiału.')
   if (sink?.flash) warnings.push('Przepakowanie gniazda — wypływka na linii podziału.')
+  if (sink?.diesel) warnings.push('Przypalenia na końcu drogi płynięcia (sprężone powietrze).')
+  if (sink?.streaks) warnings.push('Smugi przypalonego materiału – termiczna degradacja stopu.')
   if (sink?.screwBottomed) warnings.push('Ślimak doszedł do przodu w fazie docisku — brak materiału do kompensacji skurczu.')
 
   return {
@@ -916,6 +967,9 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (training && !training.holdingWorked) reasons.push(`Docisk nie wykonał wymaganej pracy: ruch ślimaka ${training.holdingStroke} mm`)
   if (training?.pressureLimited)    reasons.push(`Osiągnięto limit ciśnienia ${training.pressureLimit} bar`)
   if (training?.sinkDepth !== undefined && !training.sinkOk) reasons.push(`Zapadnięcie ${training.sinkDepth} mm – kompensacja skurczu ${training.compensation}%`)
+  if (training?.diesel)             reasons.push(`Efekt Diesla – prędkość końcowa ${training.endSpeed} mm/s, odpowietrzenie ${Math.round(training.ventFactor * 100)}%`)
+  if (training?.dosingOk === false)  reasons.push(`Dozowanie ${training.dosingTime} s dłuższe niż chłodzenie ${training.coolingTime} s`)
+  if (training?.streaks)            reasons.push(`Smugi przypalonego materiału – lokalna temperatura stopu ${training.localMeltTemp} °C`)
   if (training?.flash)              reasons.push(`Wypływka ${training.burr} mm – kompensacja ${training.compensation}%${training.openingForce ? `, siła rozwierająca ${training.openingForce} kN` : ''}`)
   if (training?.openingForce && !training.flash && !training.clampMarginOk) reasons.push(`Za mały zapas siły zwarcia: potrzeba ${training.requiredClamp} kN`)
   if (training?.overClamp)          reasons.push('Siła zwarcia powyżej zakresu formy')

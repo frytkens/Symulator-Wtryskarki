@@ -15,7 +15,7 @@ import { BASE_START, SINK_MODEL, MACHINE, MATERIAL, PASS } from './zapadniecia.j
 // Wypływka, gdy F_rozw > Fz. Zaliczenie wymaga zapasu Fz ≥ 1,1 × F_rozw i Fz ≤ 700 kN.
 // Receptura bazowa (A_rzut 150 cm²): F_rozw ≈ 479 kN → wymagane ≈ 527 kN, nastawa 600 kN.
 // -------------------------------------------------------------
-const FLASH_MODEL = {
+export const FLASH_MODEL = {
   ...SINK_MODEL,
   type: 'flashMark',
   // temperatury działają tu przez lepkość w gnieździe (clamp.viscosity), nie przez skurcz/zamarzanie

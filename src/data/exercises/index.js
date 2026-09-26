@@ -25,7 +25,11 @@ export const VISIBLE_EXERCISE_KEYS = new Set([
   'wyplywy_W01',
   'wyplywy_W02',
   'wyplywy_W03',
-  'wyplywy_W04'
+  'wyplywy_W04',
+  'przypalenia_P01',
+  'przypalenia_P02',
+  'przypalenia_P03',
+  'przypalenia_P04'
 ])
 
 // Wartości startowe ćwiczenia: domyślne → scenariusz → nadpisania administratora.

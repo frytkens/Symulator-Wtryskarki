@@ -31,6 +31,22 @@ export const FLASH_LEVELS = [
   'Wypływka na całym obwodzie linii podziału'
 ]
 
+export const DIESEL_LEVELS = [
+  'Detal bez przypaleń',
+  'Lekkie przebarwienie na końcu drogi płynięcia',
+  'Wyraźne czarne przypalenie w narożu',
+  'Przypalenie z niedolaną krawędzią',
+  'Rozległe przypalenia na końcu drogi płynięcia'
+]
+
+export const STREAK_LEVELS = [
+  'Detal bez smug',
+  'Pojedyncze jasne smugi przy dolocie',
+  'Wyraźne srebrzyste smugi od dolotu',
+  'Brązowe smugi na dużej powierzchni',
+  'Brązowe przebarwienia i smugi na całym detalu'
+]
+
 export function levelCaptions(result) {
   return result?.model === 'sinkMark' ? SINK_LEVELS : VISUAL_LEVELS
 }
@@ -38,13 +54,15 @@ export function levelCaptions(result) {
 // Obraz i podpis detalu – zawsze zgodne z oceną cyklu (standard, pkt 14).
 export function partViewFor(result, wada) {
   if (!result) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
-  const sinkish = result.model === 'sinkMark' || result.model === 'flashMark'
+  const sinkish = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark'
+  if (result.diesel) return { kind: 'defect', src: '/defects/przypalenia.jpg', caption: DIESEL_LEVELS[result.dieselLevel] }
+  if (result.streaks) return { kind: 'defect', src: '/defects/przypalenia.jpg', caption: STREAK_LEVELS[result.streakLevel] }
   if (result.flash || result.lateSwitch) {
     const lvl = result.flashLevel || 2
     return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: FLASH_LEVELS[lvl] }
   }
   if (result.visualLevel === 0) {
-    const okCaption = result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
+    const okCaption = result.model === 'burnMark' ? 'Detal bez przypaleń i smug' : result.model === 'flashMark' ? FLASH_LEVELS[0] : result.model === 'sinkMark' ? SINK_LEVELS[0] : VISUAL_LEVELS[0]
     return { kind: 'ok', caption: okCaption }
   }
   if (result.finalFill < 98.5) return { kind: 'defect', src: '/defects/niedolanie.jpg', caption: VISUAL_LEVELS[Math.max(1, result.visualLevel)] }
@@ -56,7 +74,7 @@ export function partViewFor(result, wada) {
 export function studentReasons(result) {
   if (!result) return []
   const reasons = []
-  const sinkModel = result.model === 'sinkMark' || result.model === 'flashMark'
+  const sinkModel = result.model === 'sinkMark' || result.model === 'flashMark' || result.model === 'burnMark'
   if (sinkModel && result.finalFill < 98.5) {
     reasons.push(`Detal niekompletny — masa ${result.mass} g (referencja ${result.referenceMass} g)`)
   } else if (!sinkModel && result.visualLevel > 0) {
@@ -66,6 +84,9 @@ export function studentReasons(result) {
     reasons.push(`Zapadnięcie na powierzchni: ${result.sinkDepth} mm (dopuszczalne ≤ 0.03 mm)`)
   }
   if (result.flash) reasons.push(`Wypływka na linii podziału — grat ${result.burr} mm`)
+  if (result.diesel) reasons.push('Czarne przypalenia na końcu drogi płynięcia')
+  if (result.streaks) reasons.push('Brązowe/srebrzyste smugi przypalonego materiału')
+  if (result.dosingOk === false) reasons.push(`Dozowanie (${result.dosingTime} s) trwa dłużej niż chłodzenie (${result.coolingTime} s)`)
   if (result.overClamp) reasons.push('Siła zwarcia powyżej zakresu dla tej formy — ryzyko uszkodzenia płaszczyzny podziału i zgniecenia odpowietrzeń')
   if (result.openingForce && !result.flash && result.clampMarginOk === false) reasons.push('Brak zapasu siły zwarcia — forma na granicy rozwarcia')
   if (result.lateSwitch) reasons.push('Pik ciśnienia pod koniec wtrysku — ryzyko wypływki i przepakowania')

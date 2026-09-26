@@ -28,6 +28,10 @@ function indicators(values) {
   const fill = simulateTrainingCycle(values, EXERCISES.niedolanie.machine, EXERCISES.niedolanie)
   const sink = simulateTrainingCycle(values, EXERCISES.zapadniecia_Z01.machine, { processModel: SINK_MODEL })
   const flash = simulateTrainingCycle(values, EXERCISES.wyplywy_W04.machine, EXERCISES.wyplywy_W04)
+  // W panelu wszystkie źródła ścinania działają w pełni (bez ograniczeń scenariusza).
+  const burnModel = EXERCISES.przypalenia_P01.processModel
+  const burnA = simulateTrainingCycle(values, EXERCISES.przypalenia_P01.machine,
+    { processModel: { ...burnModel, burn: { ...burnModel.burn, helperCap: Infinity } } })
   const valveA = simulateTrainingCycle(values, EXERCISES.niedolanie_N012.machine, EXERCISES.niedolanie_N012)
   // Wskaźnik zaworu z modelu N-02 (dekompresja + parametry pomocnicze: V1, T1/T2, przeciwciśnienie).
   const valveQuality = valveA.valveQuality / 100
@@ -48,6 +52,11 @@ function indicators(values) {
         id: 'wyplywy', label: 'Wypływki',
         pct: Math.round(clamp01((flash.openingForce * 1.1 / fz - 0.8) / 0.6) * 100),
         detail: `siła rozwierająca ${flash.openingForce} kN / zwarcie ${fz} kN${flash.flash ? ` · grat ${flash.burr} mm` : ''}`
+      },
+      {
+        id: 'przypalenia', label: 'Przypalenia (Diesel / smugi)',
+        pct: Math.round(Math.max(clamp01((burnA.dieselRatio - 0.6) / 0.8), clamp01((burnA.localMeltTemp - 250) / 25)) * 100),
+        detail: `V5 ${burnA.endSpeed} mm/s / odpowietrzenie ${Math.round(burnA.ventFactor * 100)}% · temp. lokalna ${burnA.localMeltTemp} °C`
       },
       {
         id: 'wahania', label: 'Wahania masy (zawór zwrotny)',

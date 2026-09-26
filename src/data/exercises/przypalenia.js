@@ -5,6 +5,57 @@
 // =============================================================
 
 import { cushion, meltTemp } from '../params.js'
+import { BASE_START, MACHINE, MATERIAL, PASS } from './zapadniecia.js'
+import { FLASH_MODEL } from './wyplywy.js'
+
+// -------------------------------------------------------------
+// Model przypaleń P-01…P-04 (typ 'burnMark'): silnik wypływek (napełnianie, docisk,
+// siła rozwierająca) + model burn:
+//  • efekt Diesla: V5 rzeczywista > przepustowość odpowietrzeń (110 mm/s);
+//    Fz powyżej ok. 120% siły wymaganej zgniata odpowietrzenia (PPS str. 119),
+//  • smugi przypalonego materiału: lokalna temperatura stopu > 265 °C
+//    (wzorcowo ok. 256 °C; obroty +30 °C na 1 m/s, przeciwciśnienie +0,6 °C/bar).
+// Receptura wzorcowa: brak przypaleń.
+// -------------------------------------------------------------
+const burnModel = root => ({
+  ...FLASH_MODEL,
+  type: 'burnMark',
+  clamp: { ...FLASH_MODEL.clamp, endSpeedPressure: 0, maxClamp: 1000 },
+  burn: {
+    root,
+    ventSpeed: 110, nominalRequiredClamp: 526, overclampAllowed: 1.2, crushFactor: 1.5,
+    localRef: 256, degradeTemp: 265, helperCap: 6,
+    profileRef: 232.35, perProfileDegree: 0.4,
+    obRef: 0.6, perOb: 30,
+    przRef: 10, perPrz: 0.6,
+    speedRef: 90, perSpeed: 0.05
+  }
+})
+
+const BURN_GOAL = 'Zdiagnozuj przyczynę przypaleń i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
+
+const DIESEL_OTHER = {
+  source: 'PPS ENGEL, „Efekt diesla/przypalenia”, str. 116–119',
+  items: [
+    'Efekt Diesla to problem odpowietrzenia: przypalenia na końcu drogi płynięcia, przy spotkaniu frontów, w otworach nieprzelotowych i przy żebrach poprzecznych.',
+    'Nagłe wystąpienie w produkcji: sprawdzić zabrudzenie odpowietrzeń.',
+    'Brak lub złe miejsce odpowietrzenia: poprawić odpowietrzenie formy.',
+    'Zmniejszyć siłę zwarcia – z zachowaniem bezpieczeństwa, nie więcej niż ok. 20% ponad wymaganą.',
+    'Zmniejszyć prędkość wtrysku (szczególnie na końcu napełniania) i ograniczyć zamknięte powietrze odpowiednim rozkładem płynięcia.'
+  ]
+}
+
+const STREAK_OTHER = {
+  source: 'PPS ENGEL, „Smugi przypalonego materiału”, str. 25–29',
+  items: [
+    'Temperatura masy powyżej zakresu przetwórstwa: obniżyć temperaturę cylindra, zmniejszyć obroty ślimaka, obniżyć ciśnienie plastyfikacji (przeciwciśnienie).',
+    'Za długi czas przebywania: skrócić cykl, wydłużyć opóźnienie dozowania, użyć mniejszego agregatu, zmniejszyć udział regranulatu.',
+    'Smugi przy dolocie: zmienić prędkość wtrysku (wolno–szybko), sprawdzić gorące kanały, usunąć ostre przejścia.',
+    'Sprawdzić dyszę (przekrój, temperatura), suszenie materiału (zbyt długie lub gorące też szkodzi) i stabilność termiczną barwnika.'
+  ]
+}
+
+const TEMP_NOTE = { params: ['T1', 'T2', 'T3', 'T4', 'T5'], text: 'Temperatura stopu nie usuwa zamkniętego powietrza. Zastanów się, czy powietrze ma którędy uciec z gniazda.' }
 
 export const PRZYPALENIA_EXERCISES = {
   przypalenia: {
@@ -42,7 +93,107 @@ export const PRZYPALENIA_EXERCISES = {
       { after: 9, when: (v, m) => cushion(v, m).raw < 5,
         text: 'Przy okazji sprawdź poduszkę – poniżej 5 mm cykl i tak nie zostanie zaliczony.' }
     ]
-  }
+  },
 
-  // ——— Miejsce na kolejne warianty przypaleń ———
+  przypalenia_P01: {
+    id: 'przypalenia',
+    code: 'P-01',
+    rootParam: 'Pw5', // parametr-przyczyna (tryb administratora)
+    label: 'P-01 · Przypalenia — przypadek 1',
+    learningGoal: BURN_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Na końcu drogi płynięcia, w narożu naprzeciw dolotu, pojawiają się czarne przypalenia. Wada jest zawsze w tym samym miejscu. Masa i wymiary są w normie.',
+      facts: ['Czarne przypalenia na końcu drogi płynięcia', 'Stałe miejsce wady', 'Masa w normie']
+    },
+    solutionSummary: 'Przyczyną była za wysoka prędkość ostatniego stopnia wtrysku V5 (160 mm/s). Na końcu napełniania powietrze nie zdążyło uciec przez odpowietrzenia, zostało gwałtownie sprężone i nagrzane – efekt Diesla przypalał tworzywo. Prawidłowy zakres V5 to ok. 70–110 mm/s (profil szybko–wolno na końcu). Temperatura stopu nie ma tu znaczenia – to problem odpowietrzenia.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Pw5: 160 },
+    reference: { Pw5: 90 },
+    focus: ['Pw5'],
+    pass: PASS,
+    processModel: burnModel('speed'),
+    changeNotes: [TEMP_NOTE],
+    otherParameters: DIESEL_OTHER,
+    hints: [
+      { after: 3, text: 'Wada jest na końcu drogi płynięcia. Co dzieje się z powietrzem w gnieździe w ostatniej fazie napełniania?' }
+    ]
+  },
+
+  przypalenia_P02: {
+    id: 'przypalenia',
+    code: 'P-02',
+    rootParam: 'Fz', // parametr-przyczyna (tryb administratora)
+    label: 'P-02 · Przypalenia — przypadek 2',
+    learningGoal: BURN_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Po przezbrojeniu na końcu drogi płynięcia pojawiły się czarne przypalenia. Odpowietrzenia zostały wyczyszczone, a wada nie zniknęła. Prędkości i temperatury są takie same jak w poprzednim zleceniu.',
+      facts: ['Przypalenia po przezbrojeniu', 'Odpowietrzenia czyste', 'Prędkości i temperatury bez zmian']
+    },
+    solutionSummary: 'Przyczyną była za duża siła zwarcia (1000 kN). Nadmierny docisk płyt zgniatał kanały odpowietrzające na płaszczyźnie podziału, więc powietrze nie mogło uciec i przypalało tworzywo na końcu drogi płynięcia. Siłę zwarcia ustawia się z obliczenia z zapasem, ale nie więcej niż ok. 20% ponad wymaganą (PPS): tutaj ok. 530–720 kN. Poniżej ok. 530 kN pojawia się wypływka.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Fz: 1000 },
+    reference: { Fz: 600 },
+    focus: ['Fz'],
+    pass: PASS,
+    processModel: burnModel('speed'),
+    changeNotes: [TEMP_NOTE],
+    otherParameters: DIESEL_OTHER,
+    hints: [
+      { after: 3, text: 'Odpowietrzenia są czyste, prędkości bez zmian. Co jeszcze może zamykać drogę ucieczki powietrza na płaszczyźnie podziału?' }
+    ]
+  },
+
+  przypalenia_P03: {
+    id: 'przypalenia',
+    code: 'P-03',
+    rootParam: 'Ob', // parametr-przyczyna (tryb administratora)
+    label: 'P-03 · Przypalenia — przypadek 3',
+    learningGoal: BURN_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Na powierzchni widać brązowe i srebrzyste smugi, zaczynające się przy dolocie. Materiał był suszony zgodnie z instrukcją. Czas dozowania jest wyraźnie krótszy niż zwykle.',
+      facts: ['Brązowe/srebrzyste smugi od dolotu', 'Suszenie zgodne z instrukcją', 'Krótszy czas dozowania']
+    },
+    solutionSummary: 'Przyczyną były za wysokie obroty ślimaka (1,2 m/s). Duże ścinanie podczas dozowania lokalnie przegrzewało stop ponad próg degradacji – stąd smugi przypalonego materiału. Prawidłowy zakres to ok. 0,15–0,9 m/s – dolną granicę wyznacza czas dozowania, który musi zmieścić się w czasie chłodzenia. Temperatura cylindra i przeciwciśnienie działają pomocniczo.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Ob: 1.2 },
+    reference: { Ob: 0.6 },
+    focus: ['Ob'],
+    pass: PASS,
+    processModel: burnModel('Ob'),
+    otherParameters: STREAK_OTHER,
+    hints: [
+      { after: 3, text: 'Czas dozowania jest krótszy niż zwykle. Co podczas dozowania dodatkowo nagrzewa stop?' }
+    ]
+  },
+
+  przypalenia_P04: {
+    id: 'przypalenia',
+    code: 'P-04',
+    rootParam: 'Prz', // parametr-przyczyna (tryb administratora)
+    label: 'P-04 · Przypalenia — przypadek 4',
+    learningGoal: BURN_GOAL,
+    operatorReport: {
+      title: 'Zgłoszenie operatora',
+      message: 'Na powierzchni widać brązowe i srebrzyste smugi, zaczynające się przy dolocie. Materiał był suszony zgodnie z instrukcją. Czas dozowania jest dłuższy niż zwykle.',
+      facts: ['Brązowe/srebrzyste smugi od dolotu', 'Suszenie zgodne z instrukcją', 'Dłuższy czas dozowania']
+    },
+    solutionSummary: 'Przyczyną było za wysokie przeciwciśnienie (40 bar). Wysokie ciśnienie plastyfikacji zwiększało ścinanie i lokalnie przegrzewało stop ponad próg degradacji, a przy okazji wydłużało dozowanie. Prawidłowy zakres to ok. 0–25 bar – tyle, ile potrzeba do jednorodnego stopu. Temperatura cylindra i obroty działają pomocniczo.',
+    machine: MACHINE,
+    material: MATERIAL,
+    start: { ...BASE_START, Prz: 40 },
+    reference: { Prz: 10 },
+    focus: ['Prz'],
+    pass: PASS,
+    processModel: burnModel('Prz'),
+    otherParameters: STREAK_OTHER,
+    hints: [
+      { after: 3, text: 'Czas dozowania jest dłuższy niż zwykle. Co podczas dozowania stawia opór cofającemu się ślimakowi?' }
+    ]
+  }
 }

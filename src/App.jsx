@@ -445,6 +445,8 @@ export default function App() {
   const speedIds = ['Pw5', 'Pw4', 'Pw3', 'Pw2', 'Pw1']
   const sinkExercise = activeExercise?.processModel?.type === 'sinkMark'
   const flashExercise = activeExercise?.processModel?.type === 'flashMark'
+  const burnExercise = activeExercise?.processModel?.type === 'burnMark'
+  const burnText = r => !r ? '—' : r.diesel ? 'przypalenie' : r.streaks ? 'smugi' : 'brak'
 
   const partView = partViewFor(r, wada)
 
@@ -716,6 +718,13 @@ export default function App() {
                         <small className="mono">Referencja: {r.referenceMass} g</small>
                       </>}
                     </div>
+                    {burnExercise && (
+                      <div className="c-metric c-metric--wide">
+                        <span className="mono">PRZYPALENIA / SMUGI (OCENA WIZUALNA)</span>
+                        <strong className={r ? (r.diesel || r.streaks ? 'is-ng' : 'is-ok') : ''}>{burnText(r)}</strong>
+                        {r && <small className="mono">Temperatura masy {r.meltTemperature} °C · dozowanie {r.dosingTime} s</small>}
+                      </div>
+                    )}
                     {flashExercise && (
                       <div className="c-metric c-metric--wide">
                         <span className="mono">GRAT NA LINII PODZIAŁU (POMIAR)</span>
@@ -854,7 +863,7 @@ export default function App() {
                   <table className="c-log mono">
                     <thead>
                       <tr>
-                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}{flashExercise && <th>Grat</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
+                        <th>Cykl</th><th>Wynik</th><th>Masa</th>{sinkExercise && <th>Zapadn.</th>}{flashExercise && <th>Grat</th>}{burnExercise && <th>Przypal.</th>}<th>Poduszka</th><th>Ciśn. maks.</th>
                         <th>t wtrysku</th><th>t cyklu</th><th>Zmiany nastaw</th>
                       </tr>
                     </thead>
@@ -871,6 +880,7 @@ export default function App() {
                           <td>{e.mass} g</td>
                           {sinkExercise && <td>{e.sinkDepth} mm</td>}
                           {flashExercise && <td>{e.burr} mm</td>}
+                          {burnExercise && <td>{burnText(e)}</td>}
                           <td>{e.actualCushion} mm</td>
                           <td>{e.maxPressure} bar</td>
                           <td>{e.injectionTime} s</td>

@@ -181,7 +181,7 @@ export const NIEDOLANIE_EXERCISES = {
       message: 'Początek fazy wtrysku nie jest powtarzalny. Detale mają różną masę, a od czasu do czasu pojawia się niedolanie. Nastawy nie były ostatnio zmieniane.',
       facts: ['Problem pojawia się na początku wtrysku', 'Masa detali jest zmienna', 'Niedolanie występuje okresowo']
     },
-    solutionSummary: 'Przyczyną była za mała pierwsza prędkość wtrysku i opóźnione zamykanie zaworu zwrotnego. Prawidłowy zakres pierwszego stopnia wynosi 20–40 mm/s.',
+    solutionSummary: 'Przyczyną była za mała pierwsza prędkość wtrysku i opóźnione zamykanie zaworu zwrotnego. Prawidłowy zakres pierwszego stopnia wynosi 20–100 mm/s.',
     machine: { D: 30, i: 11.5, Vpart: 32, Arzut: 150, dNozzle: 3.0, leak: 0 },
     material: { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldMax: 60 },
     start: {
@@ -194,7 +194,7 @@ export const NIEDOLANIE_EXERCISES = {
     reference: { Pp: 12, Deko: 6, Pw1: 30 },
     focus: ['Pw1', 'Deko', 'doz', 'Pp', 'Pd', 'Td', 'GR'],
     pass: { target: 12, others: 60, cushion: 5, requireProcessWindow: true, requiredStableCycles: 3 },
-    keyNumber: { label: 'Pierwsza prędkość', value: '20–40', unit: 'mm/s' },
+    keyNumber: { label: 'Pierwsza prędkość', value: '20–100', unit: 'mm/s' },
     processModel: {
       type: 'shortShotValve', valveCause: 'firstSpeed',
       instabilityScale: 60,
@@ -209,7 +209,7 @@ export const NIEDOLANIE_EXERCISES = {
         backPressureRef: 10, perBackPressure: 0.006,
         maxPositive: 0.3, maxNegative: 0.4, maxWithoutRoot: 0.8
       },
-      valveSpeedMin: 20, valveSpeedMax: 40,
+      valveSpeedMin: 20, valveSpeedMax: 100,
       referenceMass: 29.1, meltVolumeFactor: 1.115,
       goodFill: 0.985, defectSpan: 0.22,
       basePressure: 92, referenceMeltTemp: 238, referenceMoldTemp: 40, referenceSpeed: 90,
