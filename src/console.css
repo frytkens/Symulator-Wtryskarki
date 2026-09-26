@@ -330,8 +330,17 @@
   width: 100%; height: 90px; background: #131417; border: 1px solid var(--c-line); border-radius: 6px;
   display: flex; align-items: flex-end; overflow: hidden;
 }
-.c-profile-bar div { width: 100%; background: linear-gradient(180deg, #9fcf45, #5f7f25); transition: height .2s; }
-.c-profile-col:last-child .c-profile-bar div { background: linear-gradient(180deg, #c9d0ff, #7d88d6); }
+.c-profile-bar { cursor: ns-resize; touch-action: none; user-select: none; height: 130px; }
+.c-profile-bar:hover:not(.is-disabled), .c-profile-bar:focus-visible { border-color: var(--c-accent); outline: none; }
+.c-profile-bar.is-disabled { cursor: not-allowed; }
+.c-profile-fill { position: relative; width: 100%; background: linear-gradient(180deg, #9fcf45, #5f7f25); }
+.c-profile-col:last-child .c-profile-fill { background: linear-gradient(180deg, #c9d0ff, #7d88d6); }
+.c-profile-grip {
+  position: absolute; left: 50%; top: 0; transform: translate(-50%, -50%);
+  width: 60%; max-width: 46px; height: 8px; border-radius: 4px;
+  background: var(--c-text); box-shadow: 0 0 0 2px #131417, 0 0 10px rgba(255,255,255,.25);
+}
+.c-profile-bar.is-disabled .c-profile-grip { display: none; }
 .c-profile-input {
   width: 100%; text-align: center;
   background: var(--c-card-2); border: 1px solid var(--c-line); border-radius: 6px;

@@ -4,6 +4,7 @@ import DefectManager from './components/DefectManager.jsx'
 import DefectsPanel from './components/DefectsPanel.jsx'
 import ParamStepper from './components/console/ParamStepper.jsx'
 import MachineSchematic from './components/console/MachineSchematic.jsx'
+import SpeedBar from './components/console/SpeedBar.jsx'
 import { LABELS } from './data/labels.js'
 import {
   PARAMS, CLAMP_PARAMS, ALL_PARAMS, MACHINE,
@@ -602,12 +603,10 @@ export default function App() {
                     <div className="c-card-head"><h3 className="mono">WTRYSK (PROFIL PRĘDKOŚCI)</h3></div>
                     <div className="c-profile">
                       {speedIds.map(id => {
-                        const v = Number(values[id]) || 0
                         return (
                           <div key={id} className="c-profile-col">
-                            <div className="c-profile-bar">
-                              <div style={{ height: `${Math.max(3, v / P[id].max * 100)}%` }} />
-                            </div>
+                            <SpeedBar param={P[id]} value={values[id]} label={LABELS[id]}
+                              onChange={handleChange} disabled={controlsLocked} />
                             <input className="c-profile-input mono" type="number" min={P[id].min} max={P[id].max}
                               step={P[id].step} value={values[id]} disabled={controlsLocked} aria-label={LABELS[id]}
                               onChange={e => handleChange(id, e.target.value)} />
