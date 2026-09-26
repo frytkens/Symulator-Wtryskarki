@@ -41,6 +41,7 @@ const SINK_MODEL = {
   freezePerMoldDegree: 0.01,
   freezePerMeltDegree: 0.004,
   postFreezeFactor: 0.28,
+  maxHoldFactor: 1.4,
   shrinkage: 0.045,
   shrinkPerMeltDegree: 0.003,
   maxSinkDepth: 0.35,
@@ -49,6 +50,7 @@ const SINK_MODEL = {
   referenceClampForce: 175,
   overpackMassFactor: 0.3,
   minimumCushion: 5, // PPS: poduszka min. 5 mm
+  maximumCushion: 12,
   // okno V/P i ciśnienie – jak w N-01
   vpFillMin: 0.94,
   vpFillMax: 0.98,
@@ -72,6 +74,17 @@ const MATERIAL = { name: 'PP MFI 12', tmMin: 220, tmMax: 260, moldMin: 20, moldM
 const PASS = { target: 12, others: 60, cushion: 5, requireProcessWindow: true }
 const GOAL = 'Zdiagnozuj przyczynę zapadnięć i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.'
 
+const SINK_OTHER = {
+  source: 'PPS ENGEL, „Wciągi/zapady – działania naprawcze”, str. 45–47',
+  items: [
+    'Poduszka min. 5 mm i stabilna – inaczej zwiększyć drogę dozowania, sprawdzić zawór zwrotny i zasilanie materiału.',
+    'Zapady przy dolocie lub w grubych miejscach: zoptymalizować czas docisku, podnieść ciśnienie docisku, obniżyć temperaturę formy, masy i prędkość wtrysku.',
+    'Zapady z dala od dolotu lub w cienkich miejscach: czas docisku, ciśnienie docisku (ryzyko zapływek), wyższa prędkość, temperatura masy i formy (+).',
+    'Zapady pojawiające się po wyformowaniu: wydłużyć czas chłodzenia.',
+    'Przy zbyt wysokim docisku: ryzyko zapływek/gratu, problemy z wyformowaniem i uszkodzenia formy.'
+  ]
+}
+
 export const ZAPADNIECIA_EXERCISES = {
   zapadniecia_Z01: {
     id: 'zapadniecia',
@@ -91,6 +104,7 @@ export const ZAPADNIECIA_EXERCISES = {
     focus: ['Pd', 'Td', 'doz', 'Pp'],
     pass: PASS,
     processModel: SINK_MODEL,
+    otherParameters: SINK_OTHER,
     hints: [
       { after: 3, text: 'Obserwuj masę wypraski. Która faza cyklu uzupełnia materiał po napełnieniu gniazda?' },
       { after: 5, when: (v) => v.Td > 10, text: 'Wydłużanie docisku ponad zamarznięcie przewężki niewiele daje, a przedłuża cykl.' }
@@ -115,6 +129,7 @@ export const ZAPADNIECIA_EXERCISES = {
     focus: ['Td', 'Pd', 'doz', 'Pp'],
     pass: PASS,
     processModel: SINK_MODEL,
+    otherParameters: SINK_OTHER,
     hints: [
       { after: 3, text: 'Porównaj masę kolejnych cykli. Czy materiał jest jeszcze dociskany, gdy przewężka jest otwarta?' },
       { after: 5, when: (v) => v.Pd > 90, text: 'Samo podnoszenie ciśnienia przy krótkim docisku grozi wypływką, a nie usuwa przyczyny.' }
@@ -139,6 +154,7 @@ export const ZAPADNIECIA_EXERCISES = {
     focus: ['doz', 'Pp', 'Pd', 'Td'],
     pass: PASS,
     processModel: SINK_MODEL,
+    otherParameters: SINK_OTHER,
     hints: [
       { after: 3, text: 'Sprawdź poduszkę po docisku. Czy ślimak ma jeszcze drogę, żeby dociskać materiał?' },
       { after: 5, when: (v) => v.doz > 52 && v.Pp < 6, text: 'Większa dawka przy tej samej pozycji V/P wydłuża też napełnianie. Co dzieje się z wypełnieniem przed dociskiem?' }

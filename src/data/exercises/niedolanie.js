@@ -58,6 +58,7 @@ export const NIEDOLANIE_EXERCISES = {
       referenceHoldingPressure: 75,
       gateFreezeTime: 6,
       minimumCushion: 5,
+      maximumCushion: 12, // rezerwa ponad to = maskowanie wczesnego V/P większą dawką
       maxPackingFill: 0.05,
       vpFillMin: 0.94,
       vpFillMax: 0.98,
@@ -74,6 +75,17 @@ export const NIEDOLANIE_EXERCISES = {
       referenceDosingTime: 6.5,
       backPressureTimeFactor: 0.012,
       auxiliaryTime: 6
+    },
+    otherParameters: {
+      source: 'PPS ENGEL, „Nie całkowicie wypełnione detale – działania naprawcze”, str. 36–37',
+      items: [
+        'Dozowanie zwiększa się tylko wtedy, gdy ślimak dochodzi do przedniego położenia (poduszka ≈ 0).',
+        'Graniczne ciśnienie wtrysku podnosi się tylko wtedy, gdy jest osiągane w fazie napełniania.',
+        'Prędkość wtrysku (+) – krótsze napełnianie, ale większe ryzyko przypaleń i wypływki.',
+        'Temperatura tworzywa (+) – lepsze płynięcie, wymaga cykli stabilizacyjnych.',
+        'Temperatura formy (+) – +10°C wydłuża czas chłodzenia o ok. 20%.',
+        'Sprawdzić otwór i temperaturę dyszy, odpowietrzenie, system dolotu i punkt wtrysku.'
+      ]
     },
     hints: [
       { after: 2, text: 'Porównaj drogę dozowania, pozycję V/P i poduszkę. Czy naprawdę brakuje materiału?' },
@@ -114,11 +126,24 @@ export const NIEDOLANIE_EXERCISES = {
       basePressure: 92, referenceMeltTemp: 238, referenceMoldTemp: 40, referenceSpeed: 90,
       pressurePerColdMeltDegree: 1.5, pressurePerColdMoldDegree: 0.45, pressurePerExtraSpeed: 0.25,
       flowPerMeltDegree: 0.004, flowPerMoldDegree: 0.002,
-      referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5, maxPackingFill: 0.055,
+      referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5,
+      maximumCushion: 12, // rezerwa ponad to = maskowanie wczesnego V/P większą dawką
+      maxPackingFill: 0.055,
       vpFillMin: 0.94, vpFillMax: 0.98, finalFillMin: 0.985, minimumHoldingStroke: 0.5,
       pressureRiseStart: 0.80, fillPressureRise: 25, lateFillStart: 0.98, latePressureSpike: 30,
       maximumMeltTemp: 260, referenceDose: 60, referenceScrewSpeed: 0.6,
       referenceBackPressure: 10, referenceDosingTime: 6.5, backPressureTimeFactor: 0.012, auxiliaryTime: 6
+    },
+    otherParameters: {
+      source: 'PPS ENGEL, „Wahania wagi i wymiarów – działania naprawcze”, str. 40',
+      items: [
+        'Poduszka musi wynosić min. 5 mm – przy za małej zwiększyć drogę dozowania.',
+        'Przy wahaniach poduszki sprawdzić zużycie zaworu zwrotnego i cylindra.',
+        'Zamykanie zaworu zwrotnego wspiera wyższa pierwsza prędkość wtrysku.',
+        'Sprawdzić dekompresję i zasyp materiału.',
+        'Przy bardzo krótkiej drodze wtrysku zamykanie zaworu może być gorsze – sprawdzić stosunek wagi wtrysku do średnicy ślimaka.',
+        'Wyznaczyć efektywny czas docisku (krzywa masy) i wysokość docisku.'
+      ]
     },
     hints: [
       { after: 2, text: 'Porównaj dekompresję z drogą dozowania. Ile wynosi 10% dawki?' },
@@ -158,11 +183,24 @@ export const NIEDOLANIE_EXERCISES = {
       basePressure: 92, referenceMeltTemp: 238, referenceMoldTemp: 40, referenceSpeed: 90,
       pressurePerColdMeltDegree: 1.5, pressurePerColdMoldDegree: 0.45, pressurePerExtraSpeed: 0.25,
       flowPerMeltDegree: 0.004, flowPerMoldDegree: 0.002,
-      referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5, maxPackingFill: 0.055,
+      referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5,
+      maximumCushion: 12, // rezerwa ponad to = maskowanie wczesnego V/P większą dawką
+      maxPackingFill: 0.055,
       vpFillMin: 0.94, vpFillMax: 0.98, finalFillMin: 0.985, minimumHoldingStroke: 0.5,
       pressureRiseStart: 0.80, fillPressureRise: 25, lateFillStart: 0.98, latePressureSpike: 30,
       maximumMeltTemp: 260, referenceDose: 60, referenceScrewSpeed: 0.6,
       referenceBackPressure: 10, referenceDosingTime: 6.5, backPressureTimeFactor: 0.012, auxiliaryTime: 6
+    },
+    otherParameters: {
+      source: 'PPS ENGEL, „Wahania wagi i wymiarów – działania naprawcze”, str. 40',
+      items: [
+        'Poduszka musi wynosić min. 5 mm – przy za małej zwiększyć drogę dozowania.',
+        'Przy wahaniach poduszki sprawdzić zużycie zaworu zwrotnego i cylindra.',
+        'Zamykanie zaworu zwrotnego wspiera wyższa pierwsza prędkość wtrysku.',
+        'Sprawdzić dekompresję i zasyp materiału.',
+        'Przy bardzo krótkiej drodze wtrysku zamykanie zaworu może być gorsze – sprawdzić stosunek wagi wtrysku do średnicy ślimaka.',
+        'Wyznaczyć efektywny czas docisku (krzywa masy) i wysokość docisku.'
+      ]
     },
     hints: [
       { after: 2, text: 'Pierwszy stopień wtrysku odpowiada za szybkie i powtarzalne zamknięcie zaworu zwrotnego.' },

@@ -516,3 +516,5 @@
   .c-pair, .c-row4, .c-mold-row, .c-vp-steps, .c-temps { grid-template-columns: 1fr; }
   .c-metrics { grid-template-columns: 1fr; }
 }
+
+.c-note-source { display: block; margin-top: 8px; font: 10px var(--c-mono); color: var(--c-muted); }

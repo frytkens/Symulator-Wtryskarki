@@ -738,6 +738,14 @@ export default function App() {
                     </div>
                   )}
 
+                  {solved && activeExercise.otherParameters && (
+                    <div className="c-note c-note--hint">
+                      <strong>Dodatkowe wskazania – inne parametry</strong>
+                      <ul>{activeExercise.otherParameters.items.map(t => <li key={t}>{t}</li>)}</ul>
+                      <small className="c-note-source">{activeExercise.otherParameters.source}</small>
+                    </div>
+                  )}
+
                   {TRAINER_MODE && r && (
                     <div className="c-note c-note--trainer mono">
                       <strong>WARTOŚCI MODELU (TRENER)</strong>
@@ -907,6 +915,14 @@ export default function App() {
                   {resultModal.valveScenario && ` · sprawność zaworu ${resultModal.valveEfficiency}%`}
                   {resultModal.model === 'sinkMark' && ` · kompensacja skurczu ${resultModal.compensation}% · zamarzanie przewężki ${resultModal.gateFreezeTime} s`}
                 </p>
+              </div>
+            )}
+
+            {resultModal.evaluationPassed && activeExercise?.otherParameters && (
+              <div className="c-modal-block">
+                <strong className="mono">DODATKOWE WSKAZANIA – INNE PARAMETRY</strong>
+                <ul>{activeExercise.otherParameters.items.map(t => <li key={t}>{t}</li>)}</ul>
+                <small className="c-note-source">{activeExercise.otherParameters.source}</small>
               </div>
             )}
 

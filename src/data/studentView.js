@@ -47,6 +47,9 @@ export function studentReasons(result) {
   if (result.actualCushion !== undefined && result.actualCushion < minCushion) {
     reasons.push(`Poduszka ${result.actualCushion} mm — poniżej ${minCushion} mm`)
   }
+  if (result.actualCushion > 12) {
+    reasons.push(`Poduszka ${result.actualCushion} mm — za duża rezerwa materiału w cylindrze`)
+  }
   if (!sinkModel && result.holdingWorked === false && result.visualLevel === 0) {
     reasons.push(`Ślimak nie przesunął się w fazie docisku (${result.holdingStroke} mm)`)
   }

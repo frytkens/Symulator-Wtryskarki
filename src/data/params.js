@@ -545,6 +545,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     holdingWorked &&
     !pressureLimited &&
     actualCushion >= model.minimumCushion &&
+    (!model.maximumCushion || actualCushion <= model.maximumCushion) &&
     (!valveScenario || (valveParameterOk && valveQuality >= 0.95))
 
   const shortShotRisk = Math.round(clamp01((model.goodFill - finalFill) / model.defectSpan) * 100)
@@ -594,7 +595,11 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
       (1 + (moldTemp - model.referenceMoldTemp) * model.freezePerMoldDegree) *
       (1 + (tm - model.referenceMeltTemp) * model.freezePerMeltDegree)
     // Przewężka nie zamarza skokowo – po nominalnym czasie docisk działa jeszcze częściowo.
-    const effectiveHold = td <= gateFreeze ? td : gateFreeze + (td - gateFreeze) * model.postFreezeFactor
+    // Po zamarznięciu przewężki efekt szybko się wysyca – najwyżej maxHoldFactor × czas zamarzania.
+    const effectiveHold = Math.min(
+      td <= gateFreeze ? td : gateFreeze + (td - gateFreeze) * model.postFreezeFactor,
+      gateFreeze * (model.maxHoldFactor ?? Infinity)
+    )
     const timeFactor = effectiveHold / gateFreeze
     const pressureFactor = pd / model.packReferencePressure
     const shrinkage = model.shrinkage * (1 + (tm - model.referenceMeltTemp) * model.shrinkPerMeltDegree)
@@ -643,6 +648,7 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   const warnings = []
   if (pressureLimited) warnings.push('Osiągnięto graniczne ciśnienie wtrysku.')
   if (actualCushion < model.minimumCushion) warnings.push(`Poduszka poniżej ${model.minimumCushion} mm.`)
+  if (model.maximumCushion && actualCushion > model.maximumCushion) warnings.push(`Poduszka powyżej ${model.maximumCushion} mm — nadmierna rezerwa i długi czas przebywania stopu.`)
   if (earlySwitch) warnings.push('V/P zbyt wcześnie: za małe wypełnienie w chwili przełączenia.')
   if (lateSwitch) warnings.push('V/P zbyt późno: gniazdo jest prawie lub całkowicie wypełnione przed dociskiem.')
   if (!holdingWorked && finalFill >= finalFillMin) warnings.push('Brak rzeczywistego ruchu ślimaka po V/P — docisk nie wykonuje pracy.')
@@ -801,6 +807,7 @@ export function evaluateCycle(defectsRegistry, wada, values, m = MACHINE, pass, 
   if (target > cfg.target)          reasons.push(`Wada docelowa/proces V/P: ${target}% (próg ${cfg.target}%)`)
   if (!useTrainingWindow && worst.pct > cfg.others) reasons.push(`Zrobiłeś inną wadę: ${worst.label} ${worst.pct}%`)
   if (cushionValue < cfg.cushion)   reasons.push(`Poduszka ${cushionDisplay} mm – poniżej ${cfg.cushion} mm`)
+  if (scenario?.processModel?.maximumCushion && cushionValue > scenario.processModel.maximumCushion) reasons.push(`Poduszka ${cushionDisplay} mm – powyżej ${scenario.processModel.maximumCushion} mm`)
   if (training?.earlySwitch)        reasons.push(`V/P za wcześnie: ${training.fillAtVP}% wypełnienia przy przełączeniu`)
   if (training?.lateSwitch)         reasons.push(`V/P za późno: ${training.fillAtVP}% wypełnienia przed dociskiem`)
   if (training && !training.holdingWorked) reasons.push(`Docisk nie wykonał wymaganej pracy: ruch ślimaka ${training.holdingStroke} mm`)
