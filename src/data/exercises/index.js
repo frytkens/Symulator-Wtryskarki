@@ -3,6 +3,7 @@ import { PRZYPALENIA_EXERCISES } from './przypalenia.js'
 import { WYPLYWY_EXERCISES } from './wyplywy.js'
 import { WAHANIA_EXERCISES } from './wahania.js'
 import { ZAPADNIECIA_EXERCISES } from './zapadniecia.js'
+import { loadOverrides } from '../adminOverrides.js'
 
 export const EXERCISES = {
   ...NIEDOLANIE_EXERCISES,
@@ -27,10 +28,11 @@ export const VISIBLE_EXERCISE_KEYS = new Set([
   'wyplywy_W04'
 ])
 
-export function exerciseValues(key, defaultValuesFn) {
+// Wartości startowe ćwiczenia: domyślne → scenariusz → nadpisania administratora.
+export function exerciseValues(key, defaultValuesFn, overrides = loadOverrides()) {
   const ex = EXERCISES[key]
   if (!ex) return defaultValuesFn()
-  return { ...defaultValuesFn(), ...ex.start }
+  return { ...defaultValuesFn(), ...ex.start, ...(overrides.starts[key] || {}) }
 }
 
 export function exercisesForWada(wadaId) {

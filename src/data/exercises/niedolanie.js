@@ -10,6 +10,7 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie: {
     id: 'niedolanie',
     code: 'N-01',
+    rootParam: 'Pp', // parametr-przyczyna (tryb administratora)
     label: 'N-01 · Niedolanie — przypadek 1',
     learningGoal: 'Zdiagnozuj przyczynę niedolania i uzyskaj poprawną wypraskę bez wywołania wad ubocznych.',
     operatorReport: {
@@ -104,6 +105,7 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie_N012: {
     id: 'niedolanie',
     code: 'N-01-2',
+    rootParam: 'Deko', // parametr-przyczyna (tryb administratora)
     label: 'N-02 · Niedolanie — przypadek 2',
     learningGoal: 'Zdiagnozuj przyczynę niestabilnego niedolania i potwierdź poprawę trzema stabilnymi cyklami.',
     operatorReport: {
@@ -171,6 +173,7 @@ export const NIEDOLANIE_EXERCISES = {
   niedolanie_N013: {
     id: 'niedolanie',
     code: 'N-01-3',
+    rootParam: 'Pw1', // parametr-przyczyna (tryb administratora)
     label: 'N-03 · Niedolanie — przypadek 3',
     learningGoal: 'Zdiagnozuj przyczynę niestabilnego początku wtrysku i potwierdź poprawę trzema stabilnymi cyklami.',
     operatorReport: {

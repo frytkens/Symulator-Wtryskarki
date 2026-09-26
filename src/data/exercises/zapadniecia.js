@@ -91,6 +91,7 @@ export const ZAPADNIECIA_EXERCISES = {
   zapadniecia_Z01: {
     id: 'zapadniecia',
     code: 'Z-01',
+    rootParam: 'Pd', // parametr-przyczyna (tryb administratora)
     label: 'Z-01 · Zapadnięcia — przypadek 1',
     learningGoal: GOAL,
     operatorReport: {
@@ -134,6 +135,7 @@ export const ZAPADNIECIA_EXERCISES = {
   zapadniecia_Z02: {
     id: 'zapadniecia',
     code: 'Z-02',
+    rootParam: 'Td', // parametr-przyczyna (tryb administratora)
     label: 'Z-02 · Zapadnięcia — przypadek 2',
     learningGoal: GOAL,
     operatorReport: {
@@ -177,6 +179,7 @@ export const ZAPADNIECIA_EXERCISES = {
   zapadniecia_Z03: {
     id: 'zapadniecia',
     code: 'Z-03',
+    rootParam: 'Tc', // parametr-przyczyna (tryb administratora)
     label: 'Z-03 · Zapadnięcia — przypadek 3',
     learningGoal: GOAL,
     operatorReport: {

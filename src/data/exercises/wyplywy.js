@@ -114,6 +114,7 @@ export const WYPLYWY_EXERCISES = {
   wyplywy_W01: {
     id: 'wyplywy',
     code: 'W-01',
+    rootParam: 'Pp', // parametr-przyczyna (tryb administratora)
     label: 'W-01 · Wypływki — przypadek 1',
     learningGoal: FLASH_GOAL,
     operatorReport: {
@@ -140,6 +141,7 @@ export const WYPLYWY_EXERCISES = {
   wyplywy_W02: {
     id: 'wyplywy',
     code: 'W-02',
+    rootParam: 'Pd', // parametr-przyczyna (tryb administratora)
     label: 'W-02 · Wypływki — przypadek 2',
     learningGoal: FLASH_GOAL,
     operatorReport: {
@@ -166,6 +168,7 @@ export const WYPLYWY_EXERCISES = {
   wyplywy_W03: {
     id: 'wyplywy',
     code: 'W-03',
+    rootParam: 'Pw5', // parametr-przyczyna (tryb administratora)
     label: 'W-03 · Wypływki — przypadek 3',
     learningGoal: FLASH_GOAL,
     operatorReport: {
@@ -192,6 +195,7 @@ export const WYPLYWY_EXERCISES = {
   wyplywy_W04: {
     id: 'wyplywy',
     code: 'W-04',
+    rootParam: 'Fz', // parametr-przyczyna (tryb administratora)
     label: 'W-04 · Wypływki — przypadek 4',
     learningGoal: FLASH_GOAL,
     operatorReport: {

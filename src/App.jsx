@@ -4,6 +4,8 @@ import DefectManager from './components/DefectManager.jsx'
 import DefectsPanel from './components/DefectsPanel.jsx'
 import ParamStepper from './components/console/ParamStepper.jsx'
 import MachineSchematic from './components/console/MachineSchematic.jsx'
+import AdminMatrix from './components/console/AdminMatrix.jsx'
+import { ADMIN_CODE, rootWindowCheck } from './data/adminOverrides.js'
 import SpeedBar from './components/console/SpeedBar.jsx'
 import { LABELS } from './data/labels.js'
 import {
@@ -102,7 +104,8 @@ const PANEL_LINKS = [
 ]
 
 export default function App() {
-  const [view, setView] = useState('sim') // 'sim' | 'panel' | 'admin'
+  const [view, setView] = useState('sim') // 'sim' | 'panel' | 'admin' | 'adminMatrix'
+  const [adminPrompt, setAdminPrompt] = useState(null) // null | { code, error }
   const [customDefects, setCustomDefects] = useState(() => loadCustomWady().defects)
   const [customTrainerNotes, setCustomTrainerNotes] = useState(() => loadCustomWady().trainerNotes)
   const defects = { ...BUILTIN_DEFECTS, ...customDefects }
@@ -280,7 +283,9 @@ export default function App() {
     const evaluation = evaluateCycle(defects, wada, cycleValues, exerciseMachine, activeExercise.pass, activeExercise)
     const training = evaluation.training || simulateTrainingCycle(cycleValues, exerciseMachine, activeExercise)
     const defectPct = evaluation.target ?? computeResult(defects, wada, cycleValues, exerciseMachine, activeExercise).defectPct
-    const singleCyclePassed = evaluation.passed
+    // Okno administratora zawęża zaliczenie – wynik trafia do tego samego obiektu cyklu.
+    const adminWindowOk = rootWindowCheck(exerciseKey, activeExercise, currentValues)
+    const singleCyclePassed = evaluation.passed && adminWindowOk
     const requiredStableCycles = activeExercise.pass?.requiredStableCycles || 1
     const nextStableStreak = singleCyclePassed ? stableStreakRef.current + 1 : 0
     stableStreakRef.current = nextStableStreak
@@ -310,11 +315,13 @@ export default function App() {
       cycle: cycleCounterRef.current,
       settings: currentValues,
       defectPct,
-      processWindowOk: training ? training.processWindowOk : singleCyclePassed,
+      processWindowOk: (training ? training.processWindowOk : singleCyclePassed) && adminWindowOk,
       singleCyclePassed,
       evaluationPassed: isSolved,
       evaluationReasons: evaluation.reasons,
-      studentReasons: training ? studentReasons(training) : [],
+      studentReasons: training
+        ? (adminWindowOk ? studentReasons(training) : [...studentReasons(training), 'Proces poza oknem technologicznym'])
+        : [],
       studentWarnings: training ? studentWarnings(training) : [],
       changeNotes: (activeExercise.changeNotes || [])
         .filter(n => n.params.some(id => changes.some(c => c.id === id)))
@@ -368,6 +375,10 @@ export default function App() {
         onClose={() => setView('sim')}
       />
     )
+  }
+
+  if (view === 'adminMatrix') {
+    return <AdminMatrix onClose={() => setView('sim')} />
   }
 
   if (view === 'panel') {
@@ -487,6 +498,9 @@ export default function App() {
               </nav>
             </>
           )}
+
+          <button type="button" className="c-admin-link mono" disabled={cycling}
+            onClick={() => setAdminPrompt({ code: '', error: false })}>⚙ Administrator</button>
 
           <div className="c-side-foot mono">
             <div><span>CZAS CYKLU</span><strong className="c-accent">{r ? `${round(r.cycleTime, 1)} s` : '—'}</strong></div>
@@ -855,6 +869,34 @@ export default function App() {
           </main>
         )}
       </div>
+
+      {/* ---------------- kod administratora ---------------- */}
+      {adminPrompt && (
+        <div className="c-modal-bg" onClick={() => setAdminPrompt(null)}>
+          <form className="c-modal c-modal--code" onClick={e => e.stopPropagation()}
+            onSubmit={e => {
+              e.preventDefault()
+              if (adminPrompt.code.trim().toLowerCase() === ADMIN_CODE) {
+                setAdminPrompt(null)
+                stopCycle()
+                setView('adminMatrix')
+              } else {
+                setAdminPrompt({ ...adminPrompt, error: true })
+              }
+            }}>
+            <span className="mono c-muted">TRYB ADMINISTRATORA</span>
+            <h2>Podaj kod dostępu</h2>
+            <input className="c-code-input mono" type="password" autoFocus value={adminPrompt.code}
+              aria-label="Kod administratora"
+              onChange={e => setAdminPrompt({ code: e.target.value, error: false })} />
+            {adminPrompt.error && <p className="c-code-error">Nieprawidłowy kod.</p>}
+            <div className="c-modal-actions">
+              <button type="button" className="c-btn c-btn--ghost" onClick={() => setAdminPrompt(null)}>Anuluj</button>
+              <button type="submit" className="c-btn c-btn--primary">Wejdź</button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* ---------------- okno wyboru ćwiczenia ---------------- */}
       {pickerWada && (
