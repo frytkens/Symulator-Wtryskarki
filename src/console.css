@@ -287,20 +287,21 @@
 .sch-band { stroke: #0e0f11; stroke-width: 1.5; opacity: .9; }
 .sch-hopper { fill: #34373e; stroke: #50545d; }
 .sch-label { fill: var(--c-muted); font: 600 11px var(--c-mono); letter-spacing: .05em; }
-.sch-clamp { transition: transform .6s ease; }
+.sch-clamp { transform: translateX(-40px); } /* spoczynek: forma otwarta */
 .schematic.is-cycling .sch-screw { animation: c-screw 5s ease-in-out; }
 .schematic.is-cycling .sch-clamp { animation: c-clamp 5s ease-in-out; }
 @keyframes c-screw {
-  0% { transform: translateX(0); }
-  15% { transform: translateX(-26px); }
-  45% { transform: translateX(-30px); }
+  0%, 12% { transform: translateX(0); }
+  30% { transform: translateX(-26px); }
+  50% { transform: translateX(-30px); }
   80% { transform: translateX(0); }
 }
+/* cykl: zamknięcie → wtrysk/docisk/chłodzenie → otwarcie; kończy się w pozycji otwartej */
 @keyframes c-clamp {
-  0% { transform: translateX(-30px); }
-  10% { transform: translateX(0); }
+  0% { transform: translateX(-40px); }
+  12% { transform: translateX(0); }
   85% { transform: translateX(0); }
-  100% { transform: translateX(-30px); }
+  100% { transform: translateX(-40px); }
 }
 
 /* ---------------- V/P ---------------- */
