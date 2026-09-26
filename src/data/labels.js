@@ -19,7 +19,7 @@ export const LABELS = {
   Pw3:  'Pr. wtrysku 3',
   Pw2:  'Pr. wtrysku 2',
   Pw1:  'Pr. wtrysku 1',
-  GR:   'Gr. ciśn. docisku',
+  GR:   'Gr. ciśn. wtrysku',
 
   Deko: 'Dekompresja',
   Prz:  'Przeciwciśnienie',

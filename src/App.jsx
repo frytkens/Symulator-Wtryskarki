@@ -1,18 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ParamField from './components/ParamField.jsx'
 import DefectManager from './components/DefectManager.jsx'
+import DefectsPanel from './components/DefectsPanel.jsx'
+import ParamStepper from './components/console/ParamStepper.jsx'
+import MachineSchematic from './components/console/MachineSchematic.jsx'
 import { LABELS } from './data/labels.js'
 import {
   PARAMS, CLAMP_PARAMS, ALL_PARAMS, MACHINE,
   BUILTIN_DEFECTS_ALL as BUILTIN_DEFECTS, TRAINER_NOTES_ALL as BUILTIN_TRAINER_NOTES,
-  curveVal, SUCCESS_THRESHOLD, computeResult, evaluateCycle, cushion, simulateTrainingCycle
+  computeResult, evaluateCycle, simulateTrainingCycle
 } from './data/params.js'
 import { EXERCISES, exerciseValues, exercisesForWada } from './data/exercises/index.js'
-import DefectsPanel from './components/DefectsPanel.jsx'
-import Landing from './components/Landing.jsx'
+import { VISUAL_LEVELS, studentReasons, studentWarnings } from './data/studentView.js'
+import './console.css'
 
 const CYCLE_SECONDS = 5
 const STORAGE_KEY = 'wtryskarka_custom_wady'
+const P = Object.fromEntries(ALL_PARAMS.map(p => [p.id, p]))
+
+// Tryb trenera (panel wpływu, zarządzanie wadami, wartości modelu) – tylko przez ?trener
+const TRAINER_MODE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('trener')
 
 function round(n, d = 0) {
   const f = Math.pow(10, d)
@@ -25,83 +32,15 @@ function defaultValues() {
   return v
 }
 
-function randomChallengeValues(defectsRegistry, wada) {
-  const active = defectsRegistry[wada].params
-
-  const generate = () => {
-    const v = defaultValues()
-    active.forEach(dp => {
-      const p = PARAMS.find(x => x.id === dp.id) || CLAMP_PARAMS.find(x => x.id === dp.id)
-      if (!p) return
-      // Jeśli trener zdefiniował zakres losowania startowego dla tego parametru,
-      // losujemy tylko z niego (dla dowolnego parametru wady, nie tylko dominującego).
-      const useBadRange = Array.isArray(dp.badRange) && dp.badRange.length === 2
-      const lo = useBadRange ? Math.max(p.min, dp.badRange[0]) : p.min
-      const hi = useBadRange ? Math.min(p.max, dp.badRange[1]) : p.max
-      const span = hi - lo
-      const rand = lo + Math.random() * span
-      v[p.id] = p.step < 1 ? round(rand, 2) : round(rand / p.step) * p.step
-    })
-    return v
-  }
-
-  // Nie losuj od razu "dobrej sztuki" ani wartości ledwo-ledwo wadliwej -
-  // ma to być wyraźna, jednoznaczna wada dydaktyczna, a nie coś w granicach szumu.
-  // Dlatego próg jest dużo wyższy niż SUCCESS_THRESHOLD (który decyduje o "rozwiązaniu"),
-  // a prób jest więcej, żeby dać czas na trafienie w wyraźnie złą strefę krzywej.
-  const CHALLENGE_MIN_DEFECT = Math.max(SUCCESS_THRESHOLD * 2.5, 35)
-  let best = generate()
-  let bestDefect = computeResult(defectsRegistry, wada, best).defectPct
-  for (let i = 0; i < 40; i++) {
-    if (bestDefect >= CHALLENGE_MIN_DEFECT) break
-    const attempt = generate()
-    const defectPct = computeResult(defectsRegistry, wada, attempt).defectPct
-    if (defectPct > bestDefect) {
-      best = attempt
-      bestDefect = defectPct
-    }
-  }
-  return best
+function shortLabel(label) {
+  return (label || '').split(/\s[–—-]\s/)[0]
 }
 
-function computeProcessSummary(values, machine) {
-  const speeds = ['Pw1', 'Pw2', 'Pw3', 'Pw4', 'Pw5'].map(id => Number(values[id]) || 0)
-  const vAvg = speeds.reduce((a, b) => a + b, 0) / speeds.length
-  const doz = Number(values.doz) || 0
-  const pp = Number(values.Pp) || 0
-
-  // Droga do V/P nie zawiera dekompresji.
-  const drogaDoVP = Math.max(0, doz - pp)
-  const czasWtrysku = vAvg > 0 ? drogaDoVP / vAvg : 0
-  const czasDocisku = Number(values.Td) || 0
-
-  // Model bazowy plastyfikacji: 60 mm przy Ob=0.6 i Prz=10 bar trwa 6.5 s.
-  const ob = Math.max(0.05, Number(values.Ob) || 0)
-  const prz = Number(values.Prz) || 0
-  const czasDozowania = 6.5 * (doz / 60) * (0.6 / ob) * Math.max(0.7, 1 + (prz - 10) * 0.012)
-  const czasChlodzenia = Math.max(0, Number(values.Tc) || 0)
-  const czasChlodzenieDozowanie = Math.max(czasDozowania, czasChlodzenia)
-  const czasPomocniczy = 6
-  const czasCyklu = czasWtrysku + czasDocisku + czasChlodzenieDozowanie + czasPomocniczy
-  const wydajnoscSzt = czasCyklu > 0 ? Math.round(3600 / czasCyklu) : 0
-  const cush = cushion(values, machine)
-
-  return {
-    vAvg,
-    droga: drogaDoVP,
-    drogaDoVP,
-    czasWtrysku,
-    czasDocisku,
-    czasDozowania,
-    czasChlodzenia,
-    czasChlodzenieDozowanie,
-    czasPomocniczy,
-    czasCyklu,
-    wydajnoscSzt,
-    cushionRaw: cush.raw,
-    cushionAvailable: cush.available,
-    cushionNeed: cush.need
-  }
+function formatClock(ms) {
+  const total = ms / 1000
+  const m = Math.floor(total / 60)
+  const s = (total % 60).toFixed(1).padStart(4, '0')
+  return `${String(m).padStart(2, '0')}:${s}`
 }
 
 function trendMeta(trend) {
@@ -132,8 +71,16 @@ function saveCustomWady(customDefects, customTrainerNotes) {
   }
 }
 
+const PANEL_LINKS = [
+  { id: 'sec-cylinder', label: 'Cylinder i forma' },
+  { id: 'sec-vp', label: 'Przełączenie V/P' },
+  { id: 'sec-inject', label: 'Wtrysk i docisk' },
+  { id: 'sec-plast', label: 'Plastyfikacja' },
+  { id: 'sec-log', label: 'Historia cykli' }
+]
+
 export default function App() {
-  const [view, setView] = useState('landing') // 'landing' | 'sim' | 'panel' | 'admin'
+  const [view, setView] = useState('sim') // 'sim' | 'panel' | 'admin'
   const [customDefects, setCustomDefects] = useState(() => loadCustomWady().defects)
   const [customTrainerNotes, setCustomTrainerNotes] = useState(() => loadCustomWady().trainerNotes)
   const defects = { ...BUILTIN_DEFECTS, ...customDefects }
@@ -143,6 +90,13 @@ export default function App() {
   const [values, setValues] = useState(defaultValues)
   const valuesRef = useRef(values)
   useEffect(() => { valuesRef.current = values }, [values])
+
+  const [wada, setWada] = useState(null)
+  const [exerciseKey, setExerciseKey] = useState(null)
+  const [pickerWada, setPickerWada] = useState(null)
+  const [operatorIntroOpen, setOperatorIntroOpen] = useState(false)
+  const [operatorReportOpen, setOperatorReportOpen] = useState(false)
+
   const [running, setRunning] = useState(false)
   const [solved, setSolved] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
@@ -150,38 +104,23 @@ export default function App() {
   const rafRef = useRef(null)
 
   const [countdown, setCountdown] = useState(null) // null = brak trwającego cyklu
-  const [cycleLog, setCycleLog] = useState([])
-  const [stableStreak, setStableStreak] = useState(0)
-  const stableStreakRef = useRef(0)
-  const [wada, setWada] = useState('niedolanie')
-  // wariant ćwiczenia dla bieżącej wady (np. 'niedolanie' / 'niedolanie_B' / 'niedolanie_C').
-  // null = dla tej wady nie ma jeszcze zdefiniowanego ćwiczenia -> spadamy na stare losowanie.
-  const [exerciseKey, setExerciseKey] = useState(() => exercisesForWada('niedolanie')[0]?.key ?? null)
-  const [resultModal, setResultModal] = useState(null) // { solved: boolean } | null
-  const [operatorIntroOpen, setOperatorIntroOpen] = useState(false)
-  const [operatorReportOpen, setOperatorReportOpen] = useState(false)
-  const lastLoggedValues = useRef(defaultValues())
-  const lastDefectPct = useRef(computeResult(defects, wada, defaultValues(), MACHINE, null).defectPct)
-  const cycleCounterRef = useRef(0)
   const countdownRef = useRef(null)
+  const [cycleLog, setCycleLog] = useState([])
+  const [processResult, setProcessResult] = useState(null)
+  const [resultModal, setResultModal] = useState(null)
+  const stableStreakRef = useRef(0)
+  const cycleCounterRef = useRef(0)
+  const lastLoggedValues = useRef(defaultValues())
+  const lastDefectPct = useRef(null)
 
   const cycling = countdown !== null
   const activeExercise = exerciseKey ? EXERCISES[exerciseKey] : null
   const exerciseMachine = activeExercise?.machine || MACHINE
-  const variants = exercisesForWada(wada)
-  // Widok kursanta nie podpowiada, które parametry są związane z rozwiązaniem.
-  // Pola focus pozostają w danych i mogą zostać użyte w przyszłym trybie trenera.
-  const activeIds = new Set()
+  const controlsLocked = !running || cycling || solved
 
-  const [processResult, setProcessResult] = useState(null) // null dopóki żaden cykl się nie zakończył
-
-  useEffect(() => {
-    if (view === 'sim' && activeExercise?.operatorReport) {
-      setOperatorIntroOpen(true)
-      setOperatorReportOpen(false)
-    }
-  }, [view, exerciseKey])
-
+  // ---------------------------------------------------------------
+  // Zarządzanie wadami (tryb trenera)
+  // ---------------------------------------------------------------
   function handleSaveDefect(id, defectObj, trainerNotes) {
     const nextDefects = { ...customDefects, [id]: defectObj }
     setCustomDefects(nextDefects)
@@ -201,24 +140,6 @@ export default function App() {
     setCustomDefects(nextDefects)
     setCustomTrainerNotes(nextNotes)
     saveCustomWady(nextDefects, nextNotes)
-    if (wada === id) {
-      handleWadaChange('niedolanie')
-    }
-  }
-
-  function handleUseInSimulator(id) {
-    handleWadaChange(id)
-    setView('exercise-select')
-  }
-
-  function handleSelectExercise(key) {
-    handleExerciseChange(key)
-    setView('sim')
-  }
-
-  function handleOpenPanel(id) {
-    if (id) handleWadaChange(id)
-    setView('panel')
   }
 
   function handleImportDefects(importedDefects, importedTrainerNotes) {
@@ -241,6 +162,9 @@ export default function App() {
     return { addedCount, skipped }
   }
 
+  // ---------------------------------------------------------------
+  // Timer ćwiczenia
+  // ---------------------------------------------------------------
   useEffect(() => {
     if (!running) return
     function tick() {
@@ -251,245 +175,161 @@ export default function App() {
     return () => cancelAnimationFrame(rafRef.current)
   }, [running])
 
-  const handleStart = useCallback(() => {
-    // Ćwiczenie zdefiniowane -> zawsze te same, przemyślane nastawy startowe.
-    // Brak ćwiczenia dla tej wady -> stare losowanie jako fallback.
-    const fresh = activeExercise
-      ? exerciseValues(exerciseKey, defaultValues)
-      : randomChallengeValues(defects, wada)
+  useEffect(() => () => clearInterval(countdownRef.current), [])
+
+  // ---------------------------------------------------------------
+  // Wybór wady i ćwiczenia
+  // ---------------------------------------------------------------
+  const stopCycle = () => {
+    clearInterval(countdownRef.current)
+    setCountdown(null)
+  }
+
+  // Pełny reset stanu przy wejściu w ćwiczenie: log, seria, czas, wynik (standard, pkt 15.10–11).
+  const loadExercise = useCallback((key) => {
+    const ex = EXERCISES[key]
+    stopCycle()
+    const fresh = exerciseValues(key, defaultValues)
     valuesRef.current = fresh
     setValues(fresh)
+    setWada(ex.id)
+    setExerciseKey(key)
     lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
-    setCycleLog([])
+    lastDefectPct.current = null
     stableStreakRef.current = 0
     cycleCounterRef.current = 0
-    setStableStreak(0)
-    setResultModal(null)
+    setCycleLog([])
     setProcessResult(null)
-    setElapsedMs(0)
+    setResultModal(null)
+    setRunning(false)
     setSolved(false)
+    setElapsedMs(0)
+    setOperatorReportOpen(false)
+    setOperatorIntroOpen(true)
+  }, [])
+
+  function handleOpenDefect(id) {
+    if (cycling) return
+    if (exercisesForWada(id).length === 0) return
+    setPickerWada(id)
+  }
+
+  function handleChooseExercise(key) {
+    if (running && cycleLog.length > 0 && !solved) {
+      const ok = window.confirm('Przerwać bieżące ćwiczenie? Historia cykli i czas zostaną wyzerowane.')
+      if (!ok) return
+    }
+    setPickerWada(null)
+    loadExercise(key)
+  }
+
+  function handleGoToMachine() {
+    setOperatorIntroOpen(false)
     startRef.current = Date.now()
+    setElapsedMs(0)
     setRunning(true)
-  }, [wada, customDefects, exerciseKey, activeExercise, exerciseMachine])
+  }
 
-  const handleReset = useCallback(() => {
-    setRunning(false)
-    setSolved(false)
-    setElapsedMs(0)
-    const fresh = defaultValues()
+  function handleResetSettings() {
+    if (!exerciseKey || cycling) return
+    const fresh = exerciseValues(exerciseKey, defaultValues)
     valuesRef.current = fresh
     setValues(fresh)
-    lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh, exerciseMachine, activeExercise).defectPct
-    setCycleLog([])
-    stableStreakRef.current = 0
-    cycleCounterRef.current = 0
-    setStableStreak(0)
-    setResultModal(null)
-    setProcessResult(null)
-    clearInterval(countdownRef.current)
-    setCountdown(null)
-  }, [wada, customDefects, exerciseMachine])
-
-  const handleWadaChange = useCallback((newWada) => {
-    setWada(newWada)
-    setRunning(false)
-    setSolved(false)
-    setElapsedMs(0)
-    // przy zmianie wady wybieramy jej pierwszy zdefiniowany wariant ćwiczenia (jeśli istnieje)
-    const newVariants = exercisesForWada(newWada)
-    const newExerciseKey = newVariants[0]?.key ?? null
-    const newMachine = newExerciseKey ? EXERCISES[newExerciseKey].machine : MACHINE
-    setExerciseKey(newExerciseKey)
-    const fresh = newExerciseKey ? exerciseValues(newExerciseKey, defaultValues) : defaultValues()
-    valuesRef.current = fresh
-    setValues(fresh)
-    lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, newWada, fresh, newMachine, newExerciseKey ? EXERCISES[newExerciseKey] : null).defectPct
-    setCycleLog([])
-    stableStreakRef.current = 0
-    cycleCounterRef.current = 0
-    setStableStreak(0)
-    setResultModal(null)
-    setProcessResult(null)
-    clearInterval(countdownRef.current)
-    setCountdown(null)
-  }, [customDefects])
-
-  // przełączenie wariantu ćwiczenia bez zmiany wady (np. niedolanie A -> niedolanie B)
-  const handleExerciseChange = useCallback((newExerciseKey) => {
-    setExerciseKey(newExerciseKey)
-    setRunning(false)
-    setSolved(false)
-    setElapsedMs(0)
-    const newMachine = EXERCISES[newExerciseKey]?.machine || MACHINE
-    const fresh = exerciseValues(newExerciseKey, defaultValues)
-    valuesRef.current = fresh
-    setValues(fresh)
-    lastLoggedValues.current = fresh
-    lastDefectPct.current = computeResult(defects, wada, fresh, newMachine, EXERCISES[newExerciseKey]).defectPct
-    setCycleLog([])
-    stableStreakRef.current = 0
-    cycleCounterRef.current = 0
-    setStableStreak(0)
-    setResultModal(null)
-    setProcessResult(null)
-    clearInterval(countdownRef.current)
-    setCountdown(null)
-  }, [customDefects, wada])
+  }
 
   const handleChange = useCallback((id, raw) => {
     const value = raw === '' ? '' : Number(raw)
-    setValues(prev => {
-      const next = { ...prev, [id]: value }
-      valuesRef.current = next
-      return next
-    })
+    const next = { ...valuesRef.current, [id]: value }
+    valuesRef.current = next
+    setValues(next)
   }, [])
 
-  const handleStartCycle = useCallback(() => {
-    if (cycling) return
-    setCountdown(CYCLE_SECONDS)
-    countdownRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(countdownRef.current)
-          // cykl zakończony – policz wynik i zapisz do logu
-          const currentValues = valuesRef.current
-          cycleCounterRef.current += 1
-          const cycleValues = { ...currentValues, _cycleIndex: cycleCounterRef.current }
-          const { defectPct } = computeResult(defects, wada, cycleValues, exerciseMachine, activeExercise)
-          const evaluation = activeExercise
-            ? evaluateCycle(defects, wada, cycleValues, exerciseMachine, activeExercise.pass, activeExercise)
-            : null
-          const singleCyclePassed = evaluation ? evaluation.passed : defectPct <= SUCCESS_THRESHOLD
-          const requiredStableCycles = activeExercise?.pass?.requiredStableCycles || 1
-          const nextStableStreak = singleCyclePassed ? stableStreakRef.current + 1 : 0
-          stableStreakRef.current = nextStableStreak
-          setStableStreak(nextStableStreak)
-          const isSolved = singleCyclePassed && nextStableStreak >= requiredStableCycles
+  // ---------------------------------------------------------------
+  // Cykl – ocena poza updaterami stanu (standard, pkt 8)
+  // ---------------------------------------------------------------
+  const finishCycle = useCallback(() => {
+    if (!activeExercise) return
+    // 1. aktualne nastawy
+    const currentValues = { ...valuesRef.current }
+    cycleCounterRef.current += 1
+    const cycleValues = { ...currentValues, _cycleIndex: cycleCounterRef.current }
 
-          let trend = 'first'
-          if (lastDefectPct.current !== null) {
-            if (defectPct < lastDefectPct.current) trend = 'better'
-            else if (defectPct > lastDefectPct.current) trend = 'worse'
-            else trend = 'same'
-          }
-          lastDefectPct.current = defectPct
+    // 2. wynik – jedno źródło dla ekranu i zaliczenia
+    const evaluation = evaluateCycle(defects, wada, cycleValues, exerciseMachine, activeExercise.pass, activeExercise)
+    const training = evaluation.training || simulateTrainingCycle(cycleValues, exerciseMachine, activeExercise)
+    const defectPct = evaluation.target ?? computeResult(defects, wada, cycleValues, exerciseMachine, activeExercise).defectPct
+    const singleCyclePassed = evaluation.passed
+    const requiredStableCycles = activeExercise.pass?.requiredStableCycles || 1
+    const nextStableStreak = singleCyclePassed ? stableStreakRef.current + 1 : 0
+    stableStreakRef.current = nextStableStreak
+    const isSolved = singleCyclePassed && nextStableStreak >= requiredStableCycles
 
-          const changes = ALL_PARAMS
-            .filter(p => Number(currentValues[p.id]) !== Number(lastLoggedValues.current[p.id]))
-            .map(p => ({
-              id: p.id,
-              label: LABELS[p.id] || p.label,
-              from: lastLoggedValues.current[p.id],
-              to: currentValues[p.id],
-              unit: p.unit
-            }))
-          lastLoggedValues.current = { ...currentValues }
-
-          const baseSummary = computeProcessSummary(currentValues, exerciseMachine)
-          const trainingSummary = simulateTrainingCycle(cycleValues, exerciseMachine, activeExercise)
-          const completeSummary = trainingSummary ? {
-            ...baseSummary,
-            ...trainingSummary,
-            droga: trainingSummary.strokeToVP,
-            drogaDoVP: trainingSummary.strokeToVP,
-            czasWtrysku: trainingSummary.injectionTime,
-            czasDocisku: trainingSummary.holdingTime,
-            czasDozowania: trainingSummary.dosingTime,
-            czasChlodzenia: trainingSummary.coolingTime,
-            czasChlodzenieDozowanie: trainingSummary.coolingDosingTime,
-            czasPomocniczy: trainingSummary.auxiliaryTime,
-            czasCyklu: trainingSummary.cycleTime,
-            wydajnoscSzt: trainingSummary.productivity,
-            cushionRaw: trainingSummary.physicalCushion,
-            evaluationPassed: isSolved,
-            singleCyclePassed,
-            stableStreak: nextStableStreak,
-            requiredStableCycles,
-            evaluationReasons: evaluation?.reasons || []
-          } : {
-            ...baseSummary,
-            evaluationPassed: isSolved,
-            singleCyclePassed,
-            stableStreak: nextStableStreak,
-            requiredStableCycles,
-            evaluationReasons: evaluation?.reasons || []
-          }
-          setProcessResult(completeSummary)
-
-          setCycleLog(log => [
-            { cycle: log.length + 1, changes, defectPct, solved: isSolved, singleCyclePassed, stableStreak: nextStableStreak, requiredStableCycles, trend, reasons: evaluation?.reasons || [] },
-            ...log
-          ])
-          setResultModal({ solved: isSolved, singleCyclePassed, stableStreak: nextStableStreak, requiredStableCycles, trend, defectPct, evaluation })
-
-          if (isSolved) {
-            setRunning(false)
-            setSolved(true)
-          }
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  }, [cycling, running, solved, wada, customDefects, activeExercise, exerciseMachine])
-
-  useEffect(() => {
-    if (countdown === 0) {
-      const t = setTimeout(() => setCountdown(null), 600)
-      return () => clearTimeout(t)
+    let trend = 'first'
+    if (lastDefectPct.current !== null) {
+      if (defectPct < lastDefectPct.current) trend = 'better'
+      else if (defectPct > lastDefectPct.current) trend = 'worse'
+      else trend = 'same'
     }
-  }, [countdown])
+    lastDefectPct.current = defectPct
 
-  useEffect(() => () => clearInterval(countdownRef.current), [])
+    const changes = ALL_PARAMS
+      .filter(p => Number(currentValues[p.id]) !== Number(lastLoggedValues.current[p.id]))
+      .map(p => ({
+        id: p.id,
+        label: LABELS[p.id] || p.label,
+        from: lastLoggedValues.current[p.id],
+        to: currentValues[p.id],
+        unit: p.unit
+      }))
+    lastLoggedValues.current = currentValues
 
-  const seconds = (elapsedMs / 1000).toFixed(1)
-  const visibleHints = activeExercise?.hints
-    ? activeExercise.hints.filter(h => cycleLog.length >= h.after && (!h.when || h.when(values, exerciseMachine)))
-    : []
+    const result = {
+      ...(training || {}),
+      cycle: cycleCounterRef.current,
+      settings: currentValues,
+      defectPct,
+      processWindowOk: training ? training.processWindowOk : singleCyclePassed,
+      singleCyclePassed,
+      evaluationPassed: isSolved,
+      evaluationReasons: evaluation.reasons,
+      studentReasons: training ? studentReasons(training) : [],
+      studentWarnings: training ? studentWarnings(training) : [],
+      stableStreak: nextStableStreak,
+      requiredStableCycles,
+      trend
+    }
 
-  const studentDefects = defects.niedolanie
-    ? { niedolanie: defects.niedolanie }
-    : {}
+    // 3. wynik procesu, 4. log, 5. seria, 6. komunikat
+    setProcessResult(result)
+    setCycleLog(log => [{ ...result, changes }, ...log])
+    setResultModal(result)
 
-  if (view === 'landing') {
-    return (
-      <Landing
-        defects={studentDefects}
-        onStartTraining={handleUseInSimulator}
-        onOpenPanel={handleOpenPanel}
-      />
-    )
-  }
+    // 7. zakończenie ćwiczenia
+    if (isSolved) {
+      setRunning(false)
+      setSolved(true)
+    }
+  }, [activeExercise, exerciseMachine, wada, customDefects])
 
-  if (view === 'exercise-select') {
-    return (
-      <div className="page">
-        <div className="page-header-row">
-          <div>
-            <h1>Niedolania</h1>
-            <p className="sub">Wybierz przypadek szkoleniowy. Zgłoszenie operatora pojawi się dopiero po otwarciu ćwiczenia.</p>
-          </div>
-          <button className="btn" onClick={() => setView('landing')}>← Wróć</button>
-        </div>
+  const handleStartCycle = useCallback(() => {
+    if (cycling || !running || solved) return
+    let left = CYCLE_SECONDS
+    setCountdown(left)
+    countdownRef.current = setInterval(() => {
+      left -= 1
+      if (left > 0) {
+        setCountdown(left)
+        return
+      }
+      clearInterval(countdownRef.current)
+      setCountdown(null)
+      finishCycle()
+    }, 1000)
+  }, [cycling, running, solved, finishCycle])
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, maxWidth: 1050, margin: '36px auto' }}>
-          {variants.map((exercise, index) => (
-            <button key={exercise.key} type="button" onClick={() => handleSelectExercise(exercise.key)}
-              style={{ minHeight: 180, padding: 24, border: '1px solid #cbd5e1', borderRadius: 16, background: '#fff', textAlign: 'left', cursor: 'pointer', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.08)' }}>
-              <span style={{ display: 'block', color: '#64748b', fontSize: 14, fontWeight: 700, marginBottom: 10 }}>ĆWICZENIE {index + 1}</span>
-              <strong style={{ display: 'block', fontSize: 22, color: '#0f172a', marginBottom: 12 }}>{exercise.label}</strong>
-              <span style={{ color: '#475569' }}>Otwórz zgłoszenie operatora →</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
+  // ---------------------------------------------------------------
+  // Widoki trenera
+  // ---------------------------------------------------------------
   if (view === 'admin') {
     return (
       <DefectManager
@@ -499,7 +339,7 @@ export default function App() {
         onSave={handleSaveDefect}
         onDelete={handleDeleteDefect}
         onImport={handleImportDefects}
-        onUseInSimulator={handleUseInSimulator}
+        onUseInSimulator={() => setView('sim')}
         onClose={() => setView('sim')}
       />
     )
@@ -511,409 +351,553 @@ export default function App() {
         <div className="page-header-row">
           <div>
             <h1>Panel wpływu wad</h1>
-            <p className="sub">
-              Tryb swobodnej analizy – ustawiaj dowolne wartości parametrów i obserwuj, jak zmienia się
-              ryzyko każdej z 8 najczęstszych wad. Bez licznika czasu, bez losowania.
-            </p>
+            <p className="sub">Tryb trenera – swobodna analiza wpływu parametrów na ryzyko wszystkich wad.</p>
           </div>
           <button className="btn" onClick={() => setView('sim')}>← wróć do symulatora</button>
           <button className="btn" onClick={() => setView('admin')}>⚙ Zarządzaj wadami</button>
-          <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
         </div>
-
         <div className="machine-layout">
           <div className="diagram-wrap diagram-wrap--clamp">
             <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
-            {CLAMP_PARAMS.map(p => (
-              <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />
-            ))}
+            {CLAMP_PARAMS.map(p => <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />)}
           </div>
-
           <div className="diagram-wrap diagram-wrap--injection">
             <img src="/schemat.png" alt="Schemat wtryskarki" />
-            {PARAMS.map(p => (
-              <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />
-            ))}
+            {PARAMS.map(p => <ParamField key={p.id} param={p} value={values[p.id]} onChange={handleChange} />)}
           </div>
         </div>
-
         <DefectsPanel defects={defects} values={values} />
       </div>
     )
   }
 
+  // ---------------------------------------------------------------
+  // Widok kursanta – konsola maszyny
+  // ---------------------------------------------------------------
+  const visibleHints = activeExercise?.hints && running
+    ? activeExercise.hints.filter(h => cycleLog.length >= h.after && (!h.when || h.when(values, exerciseMachine)))
+    : []
+
+  const defectIds = Object.keys(BUILTIN_DEFECTS)
+  const r = processResult
+  const statusText = !activeExercise ? 'WYBIERZ ĆWICZENIE'
+    : cycling ? `CYKL W TOKU · ${countdown} s`
+    : solved ? 'ĆWICZENIE ZAKOŃCZONE'
+    : running ? 'GOTOWY DO WTRYSKU'
+    : 'OCZEKUJE'
+  const vpStart = activeExercise ? exerciseValues(exerciseKey, defaultValues).Pp : null
+  const speedIds = ['Pw5', 'Pw4', 'Pw3', 'Pw2', 'Pw1']
+
+  const partView = (() => {
+    if (!r) return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: 'Detal z ostatniej zmiany — zgłoszenie operatora' }
+    if (r.lateSwitch) return { kind: 'defect', src: '/defects/wyplywy.jpg', caption: 'Wypływka / przepakowanie na linii podziału' }
+    if (r.visualLevel === 0) return { kind: 'ok', caption: VISUAL_LEVELS[0] }
+    return { kind: 'defect', src: `/defects/${wada}.jpg`, caption: VISUAL_LEVELS[r.visualLevel], level: r.visualLevel }
+  })()
+
+  const verdict = !r ? null
+    : r.evaluationPassed ? { cls: 'ok', text: 'SZTUKA OK' }
+    : r.singleCyclePassed ? { cls: 'warn', text: `STABILNY ${r.stableStreak}/${r.requiredStableCycles}` }
+    : { cls: 'ng', text: 'SZTUKA NG' }
+
   return (
-    <div className="page">
-      <div className="page-header-row">
-        <div>
-          <h1>Symulator wtryskarki – panel parametrów</h1>
-          <p className="sub">
-            Zapoznaj się ze zgłoszeniem operatora, przeanalizuj nastawy i wyniki procesu,
-            a następnie uruchamiaj kolejne cykle, aby znaleźć przyczynę problemu.
-          </p>
+    <div className="console">
+      {/* ---------------- górny pasek ---------------- */}
+      <header className="c-top">
+        <div className="c-brand">
+          <div className="c-brand-row">
+            <span className="c-logo">ENGEL</span>
+            <span className="c-chip mono">CC300</span>
+          </div>
+          <span className="c-brand-sub mono">● SYMULATOR WTRYSKARKI</span>
         </div>
-        {/* Panel wpływu i zarządzanie pozostają w kodzie, ale są ukryte w widoku kursanta. */}
-        <button className="btn" onClick={() => setView('landing')}>🏠 Start</button>
-      </div>
-
-      {activeExercise && (
-        <div className="exercise-picker" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <strong>{activeExercise.label}</strong>
-          <button className="btn" type="button" onClick={() => {
-            setRunning(false)
-            clearInterval(countdownRef.current)
-            setCountdown(null)
-            setOperatorIntroOpen(false)
-            setView('exercise-select')
-          }}>← Wybór ćwiczenia</button>
-        </div>
-      )}
-
-      {activeExercise?.operatorReport && (
-        <div style={{ margin: '12px 0', border: '1px solid #cbd5e1', borderRadius: 12, background: '#fff' }}>
-          <button type="button" onClick={() => setOperatorReportOpen(open => !open)}
-            style={{ width: '100%', padding: '12px 16px', border: 0, background: 'transparent', textAlign: 'left', fontWeight: 700, cursor: 'pointer' }}>
-            📋 Zgłoszenie operatora {operatorReportOpen ? '▲' : '▼'}
-            {!operatorReportOpen && <span style={{ marginLeft: 10, fontWeight: 400, color: '#64748b' }}>{activeExercise.operatorReport.message.slice(0, 90)}…</span>}
-          </button>
-          {operatorReportOpen && (
-            <div style={{ padding: '0 16px 14px' }}>
-              <p style={{ margin: '0 0 8px' }}>„{activeExercise.operatorReport.message}”</p>
-              <ul style={{ margin: 0, paddingLeft: 22 }}>{activeExercise.operatorReport.facts?.map(fact => <li key={fact}>{fact}</li>)}</ul>
-            </div>
+        <span className="c-chip c-chip--mode mono">TRYB<br />SZKOLENIOWY</span>
+        <div className="c-top-exercise">
+          {activeExercise ? (
+            <>
+              <span className="c-top-exercise-label">{activeExercise.label}</span>
+              <button type="button" className="c-btn c-btn--ghost" disabled={cycling}
+                onClick={() => setPickerWada(wada)}>Zmień ćwiczenie</button>
+            </>
+          ) : (
+            <span className="c-muted">Wybierz rodzaj wady z panelu po lewej</span>
           )}
         </div>
-      )}
-
-      {activeExercise?.learningGoal && (
-        <div className="exercise-hints"><strong>Twoje zadanie:</strong> {activeExercise.learningGoal}</div>
-      )}
-
-      {solved && activeExercise?.solutionSummary && (
-        <div style={{ margin: '12px 0', padding: '14px 16px', borderRadius: 12, background: '#ecfdf3', border: '1px solid #86efac', color: '#166534' }}>
-          <strong>Wyjaśnienie:</strong> {activeExercise.solutionSummary}
+        <div className={`c-status mono ${cycling ? 'is-busy' : ''}`}>
+          <span className="c-led" />{statusText}
         </div>
-      )}
-
-      <div className="timer-bar">
-        <div className="timer-display">
-          <span className="timer-label">czas</span>
-          <span className="timer-value">{seconds}s</span>
-        </div>
-        {!running && !solved && (
-          <button className="btn primary" onClick={handleStart}>start</button>
-        )}
-        {running && (
-          <button className="btn" onClick={handleReset}>przerwij</button>
-        )}
-        {solved && (
-          <div className="solved-msg">
-            rozwiązano w {seconds}s
-            <button className="btn primary" onClick={handleStart}>jeszcze raz</button>
+        {TRAINER_MODE && (
+          <div className="c-top-trainer">
+            <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('panel')}>Panel wpływu</button>
+            <button type="button" className="c-btn c-btn--ghost" onClick={() => setView('admin')}>Wady</button>
           </div>
         )}
+      </header>
 
-        <button
-          className="btn primary cycle-btn"
-          onClick={handleStartCycle}
-          disabled={cycling || !running || solved}
-          title={!running && !solved ? 'Najpierw kliknij „start”, aby wczytać scenariusz.' : ''}
-        >
-          {cycling ? `Cykl… ${countdown}` : solved ? 'Ćwiczenie zakończone' : 'Start cyklu'}
-        </button>
-      </div>
+      <div className="c-body">
+        {/* ---------------- lewy panel ---------------- */}
+        <aside className="c-side">
+          <div className="c-side-title mono">RODZAJE WAD</div>
+          <nav className="c-defects">
+            {defectIds.map(id => {
+              const available = exercisesForWada(id).length > 0
+              const active = id === wada
+              return (
+                <button key={id} type="button"
+                  className={`c-defect ${active ? 'is-active' : ''} ${available ? '' : 'is-soon'}`}
+                  disabled={!available || cycling}
+                  onClick={() => handleOpenDefect(id)}>
+                  <img src={`/defects/${id}.jpg`} alt="" />
+                  <span className="c-defect-name">{shortLabel(BUILTIN_DEFECTS[id].label)}</span>
+                  {!available && <span className="c-defect-soon mono">wkrótce</span>}
+                </button>
+              )
+            })}
+          </nav>
 
-      <div className="machine-layout">
-        <div className="machine-layout-col">
-          <div className={`diagram-wrap diagram-wrap--clamp ${cycling ? 'is-cycling' : ''}`}>
-            <img src="/zamykanie.png" alt="Schemat zamykania wtryskarki" />
-            {CLAMP_PARAMS.map(p => (
-              <ParamField
-                key={p.id}
-                param={p}
-                value={values[p.id]}
-                onChange={handleChange}
-                disabled={cycling}
-                active={activeIds.has(p.id)}
-              />
-            ))}
-          </div>
-
-          <div className="defect-photo-card">
-            {solved ? (
-              <div style={{ minHeight: 260, display: 'grid', placeItems: 'center', background: '#ecfdf3', color: '#18794e', textAlign: 'center', padding: 24 }}>
-                <div><div style={{ fontSize: 72, lineHeight: 1 }}>✓</div><strong style={{ fontSize: 24 }}>Detal kompletny — sztuka OK</strong></div>
-              </div>
-            ) : (
-              <img
-                src={processResult?.lateSwitch ? '/defects/wyplywy.jpg' : `/defects/${wada}.jpg`}
-                alt={processResult?.lateSwitch ? 'Zbyt późne V/P — ryzyko wypływki i przepakowania' : (defects[wada]?.label || wada)}
-              />
-            )}
-            <span>{solved
-              ? 'Detal kompletny — brak niedolania'
-              : processResult?.lateSwitch
-                ? 'Zbyt późne V/P — ryzyko wypływki i przepakowania'
-                : defects[wada]?.label}</span>
-          </div>
-        </div>
-
-        <div className={`diagram-wrap diagram-wrap--injection ${cycling ? 'is-cycling' : ''}`}>
-          <img src="/schemat.png" alt="Schemat wtryskarki" />
-          {PARAMS.map(p => (
-            <ParamField
-              key={p.id}
-              param={p}
-              value={values[p.id]}
-              onChange={handleChange}
-              disabled={cycling}
-              active={activeIds.has(p.id)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="process-summary">
-        <h3>Wynikowe parametry procesu</h3>
-        {resultModal && (
-          <div className={resultModal.solved ? 'solved-msg' : 'tc-warning'} style={{ marginBottom: 14 }}>
-            {resultModal.solved
-              ? '✓ SZTUKA OK — ĆWICZENIE ZAKOŃCZONE'
-              : resultModal.singleCyclePassed
-                ? `✓ CYKL STABILNY ${resultModal.stableStreak}/${resultModal.requiredStableCycles}`
-                : `✕ SZTUKA NG${resultModal.evaluation?.reasons?.length ? ': ' + resultModal.evaluation.reasons.join(' • ') : ''}`}
-          </div>
-        )}
-        {processResult ? (
-          <>
-            <div className="process-grid">
-              <div className="process-stat">
-                <span className="ps-label">v śr. wtrysku</span>
-                <span className="ps-value">{round(processResult.actualSpeed ?? processResult.vAvg, 1)} mm/s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Droga ślimaka do V/P</span>
-                <span className="ps-value">{round(processResult.drogaDoVP ?? processResult.droga, 1)} mm</span>
-              </div>
-              {processResult.actualCushion !== undefined && <div className="process-stat">
-                <span className="ps-label">Pozycja V/P → poduszka końcowa</span>
-                <span className="ps-value">{round(processResult.vpPosition, 1)} → {processResult.actualCushion} mm</span>
-              </div>}
-              {processResult.requiredStroke !== undefined && <div className="process-stat">
-                <span className="ps-label">Skok wymagany dla stopu</span>
-                <span className="ps-value">{processResult.requiredStroke} mm</span>
-              </div>}
-              {processResult.valveScenario && <div className="process-stat">
-                <span className="ps-label">Sprawność zaworu zwrotnego</span>
-                <span className="ps-value">{processResult.valveEfficiency}%</span>
-              </div>}
-              {processResult.valveScenario && <div className="process-stat">
-                <span className="ps-label">Strata skoku przez cofanie stopu</span>
-                <span className="ps-value">{processResult.valveStrokeLoss} mm</span>
-              </div>}
-              {processResult.requiredStableCycles > 1 && <div className="process-stat">
-                <span className="ps-label">Stabilna seria</span>
-                <span className="ps-value">{processResult.stableStreak}/{processResult.requiredStableCycles}</span>
-              </div>}
-              {processResult.fillAtVP !== undefined && <div className="process-stat">
-                <span className="ps-label">Wypełnienie przy V/P</span>
-                <span className="ps-value">{processResult.fillAtVP}%</span>
-              </div>}
-              {processResult.holdingStroke !== undefined && <div className="process-stat">
-                <span className="ps-label">Ruch ślimaka po V/P</span>
-                <span className="ps-value">{processResult.holdingStroke} mm</span>
-              </div>}
-              <div className="process-stat">
-                <span className="ps-label">Poduszka końcowa</span>
-                <span className="ps-value">{round(processResult.actualCushion ?? processResult.cushionRaw, 1)} mm</span>
-              </div>
-              {processResult.finalFill !== undefined && <div className="process-stat">
-                <span className="ps-label">Wypełnienie końcowe</span>
-                <span className="ps-value">{processResult.finalFill}%</span>
-              </div>}
-              {processResult.processWindowOk !== undefined && <div className="process-stat">
-                <span className="ps-label">Okno procesu V/P</span>
-                <span className="ps-value">{processResult.processWindowOk ? 'OK' : 'NG'}</span>
-              </div>}
-              {processResult.mass !== undefined && <div className="process-stat">
-                <span className="ps-label">Masa wypraski</span>
-                <span className="ps-value">{processResult.mass} g <small>(ref. {processResult.referenceMass} g)</small></span>
-              </div>}
-              {processResult.maxPressure !== undefined && <div className="process-stat">
-                <span className="ps-label">Ciśnienie maks. / limit</span>
-                <span className="ps-value">{processResult.maxPressure} / {processResult.pressureLimit} bar</span>
-              </div>}
-              <div className="process-stat">
-                <span className="ps-label">Czas wtrysku</span>
-                <span className="ps-value">{round(processResult.injectionTime ?? processResult.czasWtrysku, 2)} s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Czas docisku</span>
-                <span className="ps-value">{round(processResult.czasDocisku, 1)} s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Czas dozowania</span>
-                <span className="ps-value">{round(processResult.czasDozowania, 1)} s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Czas chłodzenia zadany</span>
-                <span className="ps-value">{processResult.czasChlodzenia} s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Chłodzenie/dozowanie do cyklu</span>
-                <span className="ps-value">{round(processResult.czasChlodzenieDozowanie, 1)} s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Ruchy formy i wyrzut</span>
-                <span className="ps-value">{round(processResult.czasPomocniczy, 1)} s</span>
-              </div>
-              <div className="process-stat total">
-                <span className="ps-label">Czas cyklu (obliczony)</span>
-                <span className="ps-value">{round(processResult.czasCyklu, 1)} s</span>
-              </div>
-              <div className="process-stat">
-                <span className="ps-label">Wydajność</span>
-                <span className="ps-value">{processResult.wydajnoscSzt} szt./h</span>
-              </div>
-            </div>
-
-            {processResult.cushionRaw < 5 && (
-              <div className="tc-warning">
-                ⚠ Poduszka poniżej 5 mm ({round(processResult.cushionRaw, 1)} mm) – docisk nie ma na czym działać, cykl nie zostanie zaliczony niezależnie od reszty nastaw.
-              </div>
-            )}
-            {processResult.actualCushion !== undefined && processResult.actualCushion > Number(processResult.vpPosition) + 0.05 && (
-              <div className="tc-warning">⚠ Błąd bilansu: poduszka końcowa nie może być większa od pozycji V/P.</div>
-            )}
-            {processResult.warnings?.map((warning, i) => (
-              <div className="tc-warning" key={i}>⚠ {warning}</div>
-            ))}
-          </>
-        ) : (
-          <p className="process-summary-empty">Uruchom „Start cyklu”, żeby zobaczyć wynikowe parametry procesu.</p>
-        )}
-      </div>
-
-      {visibleHints.length > 0 && (
-        <div className="exercise-hints">
-          <h3>Podpowiedzi</h3>
-          <ul>
-            {visibleHints.map((h, i) => <li key={i}>{h.text}</li>)}
-          </ul>
-        </div>
-      )}
-
-      <div className="cycle-log">
-        <h3>Log cykli</h3>
-        {cycleLog.length === 0 && (
-          <p className="cycle-log-empty">Brak jeszcze żadnego cyklu – ustaw parametry i kliknij „Start cyklu”.</p>
-        )}
-        {cycleLog.map(entry => (
-          <div className={`cycle-entry ${entry.solved ? 'ok' : 'ng'}`} key={entry.cycle}>
-            <div className="cycle-entry-head">
-              <span>Cykl {entry.cycle}</span>
-              <span className={`cycle-result ${entry.solved ? 'ok' : 'ng'}`}>
-                {entry.solved ? 'sztuka DOBRA' : 'sztuka NG'}
-                {entry.trend !== 'first' && (
-                  <span className={`trend-arrow-small ${trendMeta(entry.trend).cls}`}>
-                    {trendMeta(entry.trend).arrow}
-                  </span>
-                )}
-              </span>
-            </div>
-            {entry.changes.length > 0 ? (
-              <ul className="cycle-changes">
-                {entry.changes.map(c => (
-                  <li key={c.id}>
-                    {c.label}: {c.from} → {c.to} {c.unit}
-                  </li>
+          {activeExercise && (
+            <>
+              <div className="c-side-title mono">PANELE PROCESOWE</div>
+              <nav className="c-links">
+                {PANEL_LINKS.map(l => (
+                  <a key={l.id} href={`#${l.id}`}>{l.label}</a>
                 ))}
-              </ul>
-            ) : (
-              <p className="cycle-changes-empty">Brak zmian względem poprzedniego cyklu</p>
-            )}
+              </nav>
+            </>
+          )}
+
+          <div className="c-side-foot mono">
+            <div><span>CZAS CYKLU</span><strong className="c-accent">{r ? `${round(r.cycleTime, 1)} s` : '—'}</strong></div>
+            <div><span>WYDAJNOŚĆ</span><strong>{r ? `${r.productivity} szt./h` : '—'}</strong></div>
+            <div><span>CYKLE</span><strong>{cycleLog.length}</strong></div>
           </div>
-        ))}
+        </aside>
+
+        {/* ---------------- obszar główny ---------------- */}
+        {!activeExercise ? (
+          <main className="c-main c-empty">
+            <div className="c-empty-card">
+              <MachineSchematic values={values} />
+              <h2>Wybierz rodzaj wady</h2>
+              <p>Kliknij wadę w panelu po lewej, a następnie wybierz ćwiczenie. Po wyborze otrzymasz zgłoszenie operatora.</p>
+            </div>
+          </main>
+        ) : (
+          <main className="c-main">
+            {/* karta zadania */}
+            <section className="c-card c-task">
+              <div className="c-task-info">
+                <h1>{activeExercise.label}</h1>
+                <p className="c-task-goal">{activeExercise.learningGoal}</p>
+                {activeExercise.operatorReport && (
+                  <div className={`c-report ${operatorReportOpen ? 'is-open' : ''}`}>
+                    <button type="button" className="c-report-head" onClick={() => setOperatorReportOpen(o => !o)}>
+                      <span className="mono">ZGŁOSZENIE OPERATORA</span>
+                      <span>{operatorReportOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {operatorReportOpen && (
+                      <div className="c-report-body">
+                        <p>„{activeExercise.operatorReport.message}”</p>
+                        <ul>{activeExercise.operatorReport.facts?.map(f => <li key={f}>{f}</li>)}</ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="c-task-side">
+                <div className="c-readout mono">
+                  <div><span>CZAS ĆWICZENIA</span><strong className="c-accent">{formatClock(elapsedMs)}</strong></div>
+                  <div><span>STATUS MASZYNY</span><strong>{statusText}</strong></div>
+                </div>
+                <div className="c-task-actions">
+                  <button type="button" className="c-btn c-btn--ghost" onClick={handleResetSettings} disabled={controlsLocked}>
+                    ↺ Reset nastaw
+                  </button>
+                  {solved ? (
+                    <button type="button" className="c-btn c-btn--primary" onClick={() => loadExercise(exerciseKey)}>
+                      ↻ Powtórz ćwiczenie
+                    </button>
+                  ) : !running ? (
+                    <button type="button" className="c-btn c-btn--primary" onClick={() => setOperatorIntroOpen(true)}>
+                      ▶ Rozpocznij
+                    </button>
+                  ) : (
+                    <button type="button" className="c-btn c-btn--primary" onClick={handleStartCycle} disabled={cycling}>
+                      {cycling ? `Cykl… ${countdown}` : '▶ Start cyklu'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <div className="c-grid">
+              <div className="c-col">
+                {/* cylinder i forma */}
+                <section className="c-card" id="sec-cylinder">
+                  <div className="c-card-head">
+                    <div>
+                      <h2>Cylinder, forma i zamykanie</h2>
+                      <span className="c-card-sub mono">STREFY GRZANIA · TEMPERATURA FORMY · ZWARCIE</span>
+                    </div>
+                    {activeExercise.material && <span className="c-chip mono">{activeExercise.material.name}</span>}
+                  </div>
+                  <div className="c-schematic">
+                    <div className="c-temps">
+                      {['T1', 'T2', 'T3', 'T4', 'T5', 'TR'].map(id => (
+                        <ParamStepper key={id} param={P[id]} label={LABELS[id]} value={values[id]}
+                          onChange={handleChange} disabled={controlsLocked} compact />
+                      ))}
+                    </div>
+                    <MachineSchematic values={values} cycling={cycling} />
+                    <div className="c-mold-row">
+                      {['Tr', 'Ts', 'Tc', 'Fz'].map(id => (
+                        <ParamStepper key={id} param={P[id]} label={shortLabel(P[id].label.replace(/^\w+ – /, ''))}
+                          value={values[id]} onChange={handleChange} disabled={controlsLocked} compact />
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* V/P */}
+                <section className="c-card c-vp" id="sec-vp">
+                  <div className="c-card-head">
+                    <div>
+                      <h2>Punkt przełączenia na docisk (V/P)</h2>
+                      <span className="c-card-sub mono">POZYCJA ŚLIMAKA · DOZOWANIE {values.doz} mm</span>
+                    </div>
+                    <div className="c-vp-value mono">
+                      <strong>{values.Pp}</strong><span>mm</span>
+                    </div>
+                  </div>
+                  <input className="c-range" type="range" min={P.Pp.min} max={P.Pp.max} step={P.Pp.step}
+                    value={values.Pp === '' ? 0 : values.Pp} disabled={controlsLocked}
+                    onChange={e => handleChange('Pp', e.target.value)}
+                    style={{ '--pct': `${((Number(values.Pp) || 0) - P.Pp.min) / (P.Pp.max - P.Pp.min) * 100}%` }} />
+                  <div className="c-range-scale mono">
+                    {[0, 5, 10, 15, 20, 25].map(t => <span key={t}>{t}</span>)}
+                  </div>
+                  <div className="c-vp-foot mono">
+                    <span>Przód ślimaka ←</span>
+                    <span>nastawa startowa: {vpStart} mm</span>
+                    <span>→ Dawka</span>
+                  </div>
+                  <div className="c-vp-steps">
+                    <ParamStepper param={P.Pp} label="Pozycja V/P" value={values.Pp} onChange={handleChange} disabled={controlsLocked} compact />
+                    <ParamStepper param={P.doz} label="Skok dozowania" value={values.doz} onChange={handleChange} disabled={controlsLocked} compact />
+                  </div>
+                </section>
+
+                <div className="c-pair" id="sec-inject">
+                  {/* docisk */}
+                  <section className="c-card">
+                    <div className="c-card-head"><h3 className="mono">DOCISK</h3></div>
+                    <div className="c-stack">
+                      <ParamStepper param={P.Td} label="Czas docisku" value={values.Td} onChange={handleChange} disabled={controlsLocked} />
+                      <ParamStepper param={P.Pd} label="Ciśnienie docisku" value={values.Pd} onChange={handleChange} disabled={controlsLocked} />
+                    </div>
+                  </section>
+
+                  {/* wtrysk */}
+                  <section className="c-card">
+                    <div className="c-card-head"><h3 className="mono">WTRYSK (PROFIL PRĘDKOŚCI)</h3></div>
+                    <div className="c-profile">
+                      {speedIds.map(id => {
+                        const v = Number(values[id]) || 0
+                        return (
+                          <div key={id} className="c-profile-col">
+                            <div className="c-profile-bar">
+                              <div style={{ height: `${Math.max(3, v / P[id].max * 100)}%` }} />
+                            </div>
+                            <input className="c-profile-input mono" type="number" min={P[id].min} max={P[id].max}
+                              step={P[id].step} value={values[id]} disabled={controlsLocked} aria-label={LABELS[id]}
+                              onChange={e => handleChange(id, e.target.value)} />
+                            <span className="c-profile-label mono">{id.replace('Pw', 'V')}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <div className="c-profile-unit mono">mm/s · V1 = pierwszy stopień wtrysku</div>
+                    <ParamStepper param={P.GR} label="Gr. ciśnienia wtrysku" value={values.GR} onChange={handleChange} disabled={controlsLocked} />
+                  </section>
+                </div>
+
+                {/* plastyfikacja */}
+                <section className="c-card" id="sec-plast">
+                  <div className="c-card-head"><h3 className="mono">PLASTYFIKACJA</h3></div>
+                  <div className="c-row4">
+                    {['doz', 'Deko', 'Prz', 'Ob'].map(id => (
+                      <ParamStepper key={id} param={P[id]} label={LABELS[id]} value={values[id]}
+                        onChange={handleChange} disabled={controlsLocked} compact />
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              {/* ---------------- ocena wypraski ---------------- */}
+              <aside className="c-col c-col--right">
+                <section className="c-card c-inspect">
+                  <div className="c-card-head">
+                    <div>
+                      <h2>Ocena wypraski</h2>
+                      <span className="c-card-sub mono">{r ? `CYKL ${r.cycle}` : 'STAN WYJŚCIOWY'}</span>
+                    </div>
+                    {verdict && <span className={`c-verdict c-verdict--${verdict.cls} mono`}>{verdict.text}</span>}
+                  </div>
+                  <div className={`c-part ${partView.kind === 'ok' ? 'is-ok' : ''}`}>
+                    {partView.kind === 'ok' ? (
+                      <div className="c-part-ok"><span>✓</span><strong>Detal kompletny</strong></div>
+                    ) : (
+                      <img src={partView.src} alt={partView.caption} />
+                    )}
+                    <div className="c-part-caption mono">{partView.caption}</div>
+                  </div>
+
+                  <div className="c-metrics">
+                    <div className="c-metric c-metric--wide">
+                      <span className="mono">MASA WYPRASKI</span>
+                      <strong>{r ? `${r.mass} g` : '—'}</strong>
+                      {r && <>
+                        <div className="c-meter"><div style={{ width: `${Math.min(100, r.mass / r.referenceMass * 100)}%` }} /></div>
+                        <small className="mono">Referencja: {r.referenceMass} g</small>
+                      </>}
+                    </div>
+                    <div className="c-metric">
+                      <span className="mono">PODUSZKA</span>
+                      <strong>{r ? `${r.actualCushion} mm` : '—'}</strong>
+                    </div>
+                    <div className="c-metric">
+                      <span className="mono">RUCH PO V/P</span>
+                      <strong>{r ? `${r.holdingStroke} mm` : '—'}</strong>
+                    </div>
+                    <div className="c-metric">
+                      <span className="mono">CIŚN. MAKS. / LIMIT</span>
+                      <strong>{r ? `${r.maxPressure} / ${r.pressureLimit}` : '—'}<small> bar</small></strong>
+                    </div>
+                    <div className="c-metric">
+                      <span className="mono">PRĘDKOŚĆ ZAD. / RZECZ.</span>
+                      <strong>{r ? `${r.commandedSpeed} / ${r.actualSpeed}` : '—'}<small> mm/s</small></strong>
+                    </div>
+                    <div className="c-metric">
+                      <span className="mono">CZAS WTRYSKU</span>
+                      <strong>{r ? `${r.injectionTime} s` : '—'}</strong>
+                    </div>
+                    <div className="c-metric">
+                      <span className="mono">OKNO PROCESU</span>
+                      <strong className={r ? (r.processWindowOk ? 'is-ok' : 'is-ng') : ''}>
+                        {r ? (r.processWindowOk ? 'OK' : 'NG') : '—'}
+                      </strong>
+                    </div>
+                    {activeExercise.pass?.requiredStableCycles > 1 && (
+                      <div className="c-metric c-metric--wide">
+                        <span className="mono">STABILNA SERIA</span>
+                        <div className="c-streak">
+                          {Array.from({ length: activeExercise.pass.requiredStableCycles }).map((_, i) => (
+                            <i key={i} className={i < (r?.stableStreak || 0) ? 'on' : ''} />
+                          ))}
+                          <strong>{r?.stableStreak || 0}/{activeExercise.pass.requiredStableCycles}</strong>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {r && !r.singleCyclePassed && r.studentReasons.length > 0 && (
+                    <div className="c-note c-note--ng">
+                      <strong className="mono">DLACZEGO NG</strong>
+                      <ul>{r.studentReasons.map(x => <li key={x}>{x}</li>)}</ul>
+                    </div>
+                  )}
+                  {r?.studentWarnings.map(w => <div key={w} className="c-note c-note--warn">⚠ {w}</div>)}
+
+                  {visibleHints.length > 0 && (
+                    <div className="c-note c-note--hint">
+                      <strong>Wskazówka procesu</strong>
+                      <ul>{visibleHints.map(h => <li key={h.text}>{h.text}</li>)}</ul>
+                    </div>
+                  )}
+
+                  {solved && activeExercise.solutionSummary && (
+                    <div className="c-note c-note--ok">
+                      <strong>Diagnoza i rozwiązanie</strong>
+                      <p>{activeExercise.solutionSummary}</p>
+                    </div>
+                  )}
+
+                  {TRAINER_MODE && r && (
+                    <div className="c-note c-note--trainer mono">
+                      <strong>WARTOŚCI MODELU (TRENER)</strong>
+                      <p>Wypełnienie przy V/P {r.fillAtVP}% · końcowe {r.finalFill}% · wada {r.defectPct}%</p>
+                      {r.valveScenario && <p>Zawór: sprawność {r.valveEfficiency}% · strata skoku {r.valveStrokeLoss} mm</p>}
+                      <p>{r.evaluationReasons.join(' • ') || 'brak powodów NG'}</p>
+                    </div>
+                  )}
+                </section>
+
+                <section className="c-card c-times">
+                  <div className="c-card-head"><h3 className="mono">CZASY I BILANS</h3></div>
+                  {r ? (
+                    <dl className="mono">
+                      <dt>Droga ślimaka do V/P</dt><dd>{r.strokeToVP} mm</dd>
+                      <dt>Pozycja V/P → poduszka</dt><dd>{r.vpPosition} → {r.actualCushion} mm</dd>
+                      <dt>Czas docisku</dt><dd>{r.holdingTime} s</dd>
+                      <dt>Czas dozowania</dt><dd>{r.dosingTime} s</dd>
+                      <dt>Czas chłodzenia (zadany)</dt><dd>{r.coolingTime} s</dd>
+                      <dt>Ruchy formy i wyrzut</dt><dd>{r.auxiliaryTime} s</dd>
+                      <dt className="total">Czas cyklu</dt><dd className="total">{r.cycleTime} s</dd>
+                      <dt>Wydajność</dt><dd>{r.productivity} szt./h</dd>
+                    </dl>
+                  ) : (
+                    <p className="c-muted">Uruchom cykl, aby zobaczyć dane procesu.</p>
+                  )}
+                </section>
+              </aside>
+            </div>
+
+            {/* historia cykli */}
+            <section className="c-card" id="sec-log">
+              <div className="c-card-head"><h3 className="mono">HISTORIA CYKLI</h3></div>
+              {cycleLog.length === 0 ? (
+                <p className="c-muted">Brak cykli – zmień nastawy i kliknij „Start cyklu”.</p>
+              ) : (
+                <div className="c-log-wrap">
+                  <table className="c-log mono">
+                    <thead>
+                      <tr>
+                        <th>Cykl</th><th>Wynik</th><th>Masa</th><th>Poduszka</th><th>Ciśn. maks.</th>
+                        <th>t wtrysku</th><th>t cyklu</th><th>Zmiany nastaw</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cycleLog.map(e => (
+                        <tr key={e.cycle}>
+                          <td>{e.cycle}</td>
+                          <td>
+                            <span className={`c-tag ${e.evaluationPassed ? 'ok' : e.singleCyclePassed ? 'warn' : 'ng'}`}>
+                              {e.evaluationPassed ? 'OK' : e.singleCyclePassed ? `${e.stableStreak}/${e.requiredStableCycles}` : 'NG'}
+                            </span>
+                            {e.trend !== 'first' && <span className={`c-trend ${trendMeta(e.trend).cls}`}>{trendMeta(e.trend).arrow}</span>}
+                          </td>
+                          <td>{e.mass} g</td>
+                          <td>{e.actualCushion} mm</td>
+                          <td>{e.maxPressure} bar</td>
+                          <td>{e.injectionTime} s</td>
+                          <td>{e.cycleTime} s</td>
+                          <td className="c-log-changes">
+                            {e.changes.length > 0
+                              ? e.changes.map(c => <span key={c.id}>{c.label}: {c.from} → {c.to} {c.unit}</span>)
+                              : <span className="c-muted">bez zmian</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </main>
+        )}
       </div>
 
-      {operatorIntroOpen && activeExercise?.operatorReport && (
-        <div className="modal-backdrop">
-          <div className="modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: 650 }}>
-            <div style={{ fontSize: 48, marginBottom: 8 }}>👷</div>
-            <div className="verdict-title" style={{ color: '#1e293b' }}>{activeExercise.operatorReport.title}</div>
-            <p style={{ fontSize: 18, lineHeight: 1.55, textAlign: 'left', background: '#f8fafc', padding: 16, borderRadius: 10 }}>„{activeExercise.operatorReport.message}”</p>
-            <div style={{ textAlign: 'left', margin: '14px 0' }}>
-              <strong>Zaobserwowane objawy:</strong>
-              <ul>{activeExercise.operatorReport.facts?.map(fact => <li key={fact}>{fact}</li>)}</ul>
+      {/* ---------------- okno wyboru ćwiczenia ---------------- */}
+      {pickerWada && (
+        <div className="c-modal-bg" onClick={() => setPickerWada(null)}>
+          <div className="c-modal" onClick={e => e.stopPropagation()}>
+            <div className="c-modal-head">
+              <img src={`/defects/${pickerWada}.jpg`} alt="" />
+              <div>
+                <span className="mono c-muted">WYBÓR ĆWICZENIA</span>
+                <h2>{shortLabel(BUILTIN_DEFECTS[pickerWada]?.label)}</h2>
+              </div>
             </div>
-            <div style={{ textAlign: 'left', padding: 12, borderLeft: '4px solid #3b82f6', background: '#eff6ff', marginBottom: 18 }}>
-              <strong>Twoje zadanie:</strong> {activeExercise.learningGoal}
+            <div className="c-exercise-list">
+              {exercisesForWada(pickerWada).map((ex, i) => (
+                <button key={ex.key} type="button"
+                  className={`c-exercise ${ex.key === exerciseKey ? 'is-active' : ''}`}
+                  onClick={() => handleChooseExercise(ex.key)}>
+                  <span className="mono">ĆWICZENIE {i + 1}</span>
+                  <strong>{ex.label}</strong>
+                  <span className="c-muted">Otwórz zgłoszenie operatora →</span>
+                </button>
+              ))}
             </div>
-            <button className="btn primary" onClick={() => setOperatorIntroOpen(false)}>Przejdź do maszyny</button>
+            <button type="button" className="c-btn c-btn--ghost" onClick={() => setPickerWada(null)}>Anuluj</button>
           </div>
         </div>
       )}
 
-      {resultModal && (
-        <div className="modal-backdrop" onClick={() => setResultModal(null)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            {resultModal.solved ? (
-              <svg className="verdict-icon ok" viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r="36" fill="none" stroke="#147a3e" strokeWidth="4" />
-                <path className="check-path" d="M22 42 L35 55 L58 28" fill="none" stroke="#147a3e" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            ) : (
-              <svg className="verdict-icon ng" viewBox="0 0 80 80">
-                <circle cx="40" cy="40" r="36" fill="none" stroke="#b02a2a" strokeWidth="4" />
-                <path d="M27 27 L53 53" stroke="#b02a2a" strokeWidth="5" strokeLinecap="round" />
-                <path d="M53 27 L27 53" stroke="#b02a2a" strokeWidth="5" strokeLinecap="round" />
-              </svg>
-            )}
+      {/* ---------------- zgłoszenie operatora ---------------- */}
+      {operatorIntroOpen && activeExercise?.operatorReport && (
+        <div className="c-modal-bg">
+          <div className="c-modal c-modal--report">
+            <span className="mono c-muted">{activeExercise.label}</span>
+            <h2>👷 {activeExercise.operatorReport.title}</h2>
+            <blockquote>„{activeExercise.operatorReport.message}”</blockquote>
+            <div className="c-modal-block">
+              <strong className="mono">ZAOBSERWOWANE OBJAWY</strong>
+              <ul>{activeExercise.operatorReport.facts?.map(f => <li key={f}>{f}</li>)}</ul>
+            </div>
+            <div className="c-modal-block c-modal-block--goal">
+              <strong className="mono">TWOJE ZADANIE</strong>
+              <p>{activeExercise.learningGoal}</p>
+            </div>
+            <button type="button" className="c-btn c-btn--primary" onClick={handleGoToMachine}>Przejdź do maszyny →</button>
+          </div>
+        </div>
+      )}
 
-            <div className={`verdict-title ${resultModal.solved ? 'ok' : 'ng'}`}>
-              {resultModal.solved
+      {/* ---------------- wynik cyklu ---------------- */}
+      {resultModal && (
+        <div className="c-modal-bg" onClick={() => setResultModal(null)}>
+          <div className="c-modal c-modal--result" onClick={e => e.stopPropagation()}>
+            <div className={`c-result-icon ${resultModal.evaluationPassed ? 'ok' : resultModal.singleCyclePassed ? 'warn' : 'ng'}`}>
+              {resultModal.evaluationPassed ? '✓' : resultModal.singleCyclePassed ? '✓' : '✕'}
+            </div>
+            <h2 className={resultModal.evaluationPassed ? 'is-ok' : resultModal.singleCyclePassed ? 'is-warn' : 'is-ng'}>
+              {resultModal.evaluationPassed
                 ? 'SZTUKA OK — ĆWICZENIE ZAKOŃCZONE'
                 : resultModal.singleCyclePassed
                   ? `CYKL STABILNY ${resultModal.stableStreak}/${resultModal.requiredStableCycles}`
-                  : 'Sztuka NG'}
-            </div>
-            <p className="verdict-sub">
-              {resultModal.solved
-                ? 'Detal jest kompletny, proces stabilny, a ćwiczenie zaliczone.'
+                  : 'SZTUKA NG'}
+            </h2>
+            <p className="c-muted">
+              {resultModal.evaluationPassed
+                ? `Detal kompletny, proces w oknie. Czas: ${formatClock(elapsedMs)}.`
                 : resultModal.singleCyclePassed
-                  ? `Parametry są prawidłowe. Wykonaj kolejny cykl bez zmian (${resultModal.stableStreak}/${resultModal.requiredStableCycles}).`
-                  : 'Detal lub stabilność procesu nie spełnia warunków. Przeanalizuj parametry i wyniki cyklu.'}
+                  ? 'Cykl spełnia warunki. Wykonaj kolejny cykl bez zmian nastaw.'
+                  : 'Przeanalizuj dane procesu i zmień nastawy.'}
             </p>
 
-            {!resultModal.singleCyclePassed && resultModal.evaluation?.reasons?.length > 0 && (
-              <div className="trainer-notes">
-                <h4>Dlaczego cykl nie został zaliczony</h4>
-                <ul>{resultModal.evaluation.reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>
+            {!resultModal.singleCyclePassed && resultModal.studentReasons.length > 0 && (
+              <div className="c-modal-block">
+                <strong className="mono">OBSERWACJE</strong>
+                <ul>{resultModal.studentReasons.map(x => <li key={x}>{x}</li>)}</ul>
               </div>
             )}
 
-            {!resultModal.solved && (
-              <div className={`trend-badge ${trendMeta(resultModal.trend).cls}`}>
-                <span className="trend-arrow">{trendMeta(resultModal.trend).arrow}</span>
-                {trendMeta(resultModal.trend).text}
+            {!resultModal.evaluationPassed && (
+              <div className={`c-trend-badge ${trendMeta(resultModal.trend).cls}`}>
+                {trendMeta(resultModal.trend).arrow} {trendMeta(resultModal.trend).text}
               </div>
             )}
 
-            {resultModal.solved && trainerNotesAll[wada] && (
-              <div className="trainer-notes">
-                <h4>Do omówienia z trenerem</h4>
-                <ul>
-                  {trainerNotesAll[wada].map(item => <li key={item}>{item}</li>)}
-                </ul>
+            {resultModal.evaluationPassed && activeExercise?.solutionSummary && (
+              <div className="c-modal-block c-modal-block--ok">
+                <strong className="mono">DIAGNOZA I ROZWIĄZANIE</strong>
+                <p>{activeExercise.solutionSummary}</p>
+                <p className="mono c-solution-data">
+                  Wypełnienie przy V/P {resultModal.fillAtVP}% · końcowe {resultModal.finalFill}% ·
+                  ruch po V/P {resultModal.holdingStroke} mm · poduszka {resultModal.actualCushion} mm
+                  {resultModal.valveScenario && ` · sprawność zaworu ${resultModal.valveEfficiency}%`}
+                </p>
               </div>
             )}
 
-            {resultModal.solved && activeExercise?.solutionSummary && (
-              <div style={{ textAlign: 'left', padding: 14, borderRadius: 10, background: '#ecfdf3', color: '#166534', marginBottom: 16 }}>
-                <strong>Diagnoza i rozwiązanie</strong><br />{activeExercise.solutionSummary}
+            {resultModal.evaluationPassed && trainerNotesAll[wada] && (
+              <div className="c-modal-block">
+                <strong className="mono">DO OMÓWIENIA Z TRENEREM</strong>
+                <ul>{trainerNotesAll[wada].map(item => <li key={item}>{item}</li>)}</ul>
               </div>
             )}
-            <button className="btn primary" onClick={() => setResultModal(null)}>zamknij</button>
+            <button type="button" className="c-btn c-btn--primary" onClick={() => setResultModal(null)}>Zamknij</button>
           </div>
         </div>
       )}
