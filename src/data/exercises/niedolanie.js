@@ -127,12 +127,21 @@ export const NIEDOLANIE_EXERCISES = {
     keyNumber: { label: 'Prawidłowa dekompresja', value: '5–7', unit: 'mm' },
     processModel: {
       type: 'shortShotValve', valveCause: 'decompression',
+      instabilityScale: 60,
+      valveAdjust: {
+        tempRef: { T1: 225, T2: 230, T3: 235 },
+        tempWeights: { T1: 0.5, T2: 0.35, T3: 0.15 },
+        perDegree: 0.005,
+        firstSpeedRef: 90, perFirstSpeed: 0.002,
+        backPressureRef: 10, perBackPressure: 0.006,
+        maxPositive: 0.3, maxNegative: 0.4, maxWithoutRoot: 0.8
+      },
       valveTargetRatio: 0.10, valveMinRatio: 0.083, valveMaxRatio: 0.117,
       referenceMass: 29.1, meltVolumeFactor: 1.115,
       goodFill: 0.985, defectSpan: 0.22,
       basePressure: 92, referenceMeltTemp: 238, referenceMoldTemp: 40, referenceSpeed: 90,
       pressurePerColdMeltDegree: 1.5, pressurePerColdMoldDegree: 0.45, pressurePerExtraSpeed: 0.25,
-      flowPerMeltDegree: 0.004, flowPerMoldDegree: 0.002,
+      flowPerMeltDegree: 0.001, flowPerMoldDegree: 0.002,
       referenceHoldingPressure: 75, gateFreezeTime: 6, minimumCushion: 5,
       maximumCushion: 12, // rezerwa ponad to = maskowanie wczesnego V/P większą dawką
       maxPackingFill: 0.055,
@@ -148,6 +157,7 @@ export const NIEDOLANIE_EXERCISES = {
         'Przy wahaniach poduszki sprawdzić zużycie zaworu zwrotnego i cylindra.',
         'Zamykanie zaworu zwrotnego wspiera wyższa pierwsza prędkość wtrysku.',
         'Sprawdzić dekompresję i zasyp materiału.',
+        'Niższa temperatura przednich stref cylindra (T1, T2) i niższe przeciwciśnienie wspierają powtarzalne zamykanie zaworu; wyższe – pogarszają.',
         'Przy bardzo krótkiej drodze wtrysku zamykanie zaworu może być gorsze – sprawdzić stosunek wagi wtrysku do średnicy ślimaka.',
         'Wyznaczyć efektywny czas docisku (krzywa masy) i wysokość docisku.'
       ]
@@ -184,6 +194,18 @@ export const NIEDOLANIE_EXERCISES = {
     keyNumber: { label: 'Pierwsza prędkość', value: '20–40', unit: 'mm/s' },
     processModel: {
       type: 'shortShotValve', valveCause: 'firstSpeed',
+      instabilityScale: 60,
+      // Okresowe niedolanie: część cykli daje pełny detal, część wyraźnie niedolany –
+      // jedna dobra sztuka nie świadczy o stabilnym procesie.
+      valveLossBase: 1.2, valveLossJitter: 2.6,
+      valveAdjust: {
+        tempRef: { T1: 225, T2: 230, T3: 235 },
+        tempWeights: { T1: 0.5, T2: 0.35, T3: 0.15 },
+        perDegree: 0.005,
+        dekoRef: 6, perDeko: 0.03,
+        backPressureRef: 10, perBackPressure: 0.006,
+        maxPositive: 0.3, maxNegative: 0.4, maxWithoutRoot: 0.8
+      },
       valveSpeedMin: 20, valveSpeedMax: 40,
       referenceMass: 29.1, meltVolumeFactor: 1.115,
       goodFill: 0.985, defectSpan: 0.22,
@@ -204,7 +226,8 @@ export const NIEDOLANIE_EXERCISES = {
         'Poduszka musi wynosić min. 5 mm – przy za małej zwiększyć drogę dozowania.',
         'Przy wahaniach poduszki sprawdzić zużycie zaworu zwrotnego i cylindra.',
         'Zamykanie zaworu zwrotnego wspiera wyższa pierwsza prędkość wtrysku.',
-        'Sprawdzić dekompresję i zasyp materiału.',
+        'Sprawdzić dekompresję i zasyp materiału – prawidłowa dekompresja (ok. 10% dawki) wspiera zamykanie zaworu.',
+        'Niższa temperatura przednich stref cylindra (T1, T2) i niższe przeciwciśnienie pomagają; wyższe – pogarszają.',
         'Przy bardzo krótkiej drodze wtrysku zamykanie zaworu może być gorsze – sprawdzić stosunek wagi wtrysku do średnicy ślimaka.',
         'Wyznaczyć efektywny czas docisku (krzywa masy) i wysokość docisku.'
       ]

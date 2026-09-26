@@ -494,18 +494,34 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
     const ratio = doz > 0 ? (Number(values.Deko) || 0) / doz : 0
     valveTarget = roundTo(doz * model.valveTargetRatio, 1)
     valveParameterOk = ratio >= model.valveMinRatio && ratio <= model.valveMaxRatio
-    valveQuality = clamp01((ratio - 0.015) / (model.valveMinRatio - 0.015))
+    valveQuality = clamp01(ratio / model.valveMinRatio)
     if (ratio > model.valveMaxRatio) valveQuality = clamp01(1 - (ratio - model.valveMaxRatio) / 0.10)
   } else if (valveScenario && model.valveCause === 'firstSpeed') {
     const firstSpeed = Number(values.Pw1) || 0
     valveTarget = `${model.valveSpeedMin}–${model.valveSpeedMax}`
     valveParameterOk = firstSpeed >= model.valveSpeedMin && firstSpeed <= model.valveSpeedMax
-    valveQuality = clamp01((firstSpeed - 4) / (model.valveSpeedMin - 4))
+    valveQuality = clamp01(firstSpeed / model.valveSpeedMin)
     if (firstSpeed > model.valveSpeedMax) valveQuality = clamp01(1 - (firstSpeed - model.valveSpeedMax) / 80)
+  }
+  // Parametry pomocnicze (valveAdjust): niższa temperatura przednich stref, wyższa pierwsza
+  // prędkość (N-02), prawidłowa dekompresja (N-03) i niższe przeciwciśnienie wspierają
+  // zamykanie zaworu – odwrotna zmiana pogarsza. Wpływ jest ograniczony, więc bez
+  // parametru-przyczyny w oknie nie usuwa niestabilności.
+  const va = valveScenario ? model.valveAdjust : null
+  if (va) {
+    let adj = 0
+    Object.entries(va.tempWeights).forEach(([id, w]) => {
+      adj += ((va.tempRef[id] ?? 0) - (Number(values[id]) || 0)) * va.perDegree * w
+    })
+    if (va.perFirstSpeed) adj += ((Number(values.Pw1) || 0) - va.firstSpeedRef) * va.perFirstSpeed
+    if (va.perDeko) adj += ((Number(values.Deko) || 0) - va.dekoRef) * va.perDeko
+    adj -= ((Number(values.Prz) || 0) - va.backPressureRef) * va.perBackPressure
+    valveQuality = clamp01(valveQuality + Math.max(-va.maxNegative, Math.min(va.maxPositive, adj)))
+    if (!valveParameterOk) valveQuality = Math.min(valveQuality, va.maxWithoutRoot ?? 1)
   }
   const valveInstability = valveScenario ? (1 - valveQuality) : 0
   const valveStrokeLoss = valveScenario
-    ? Math.max(0.05, 0.05 + valveInstability * (3.6 + jitter * 1.4))
+    ? Math.max(0.05, 0.05 + valveInstability * Math.max(0, (model.valveLossBase ?? 3.6) + jitter * (model.valveLossJitter ?? 1.4)))
     : 0
   const valveEfficiency = clamp01(1 - valveStrokeLoss / Math.max(1, velocityStroke))
 
@@ -558,7 +574,11 @@ export function simulateTrainingCycle(values, m = MACHINE, scenario = null) {
   // W scenariuszu wada docelowa obejmuje nie tylko brak materiału, ale także
   // nieprawidłowe okno V/P — kompletny detal z przełączeniem po 100% nadal jest NG.
   const processPenalty = processWindowOk ? 0 : (lateSwitch ? Math.max(25, lateSwitchRisk) : 0)
-  let defectPct = Math.max(shortShotRisk, processPenalty)
+  // Przy niestabilnym zaworze wada wynika z niestabilności – przesunięcie V/P, dawki czy
+  // docisku może zmienić masę, ale nie usuwa przyczyny.
+  const instabilityRisk = valveScenario && model.instabilityScale
+    ? Math.round((1 - valveQuality) * model.instabilityScale) : 0
+  let defectPct = Math.max(shortShotRisk, processPenalty, instabilityRisk)
   let mass = roundTo(model.referenceMass * finalFill, 1)
 
   const injectionTime = actualSpeed > 0 ? velocityStroke / actualSpeed : 0
